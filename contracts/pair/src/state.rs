@@ -18,6 +18,8 @@ pub struct Config {
     pub price0_cumulative_last: Uint128,
     /// The last cumulative price 1 asset in pool
     pub price1_cumulative_last: Uint128,
+    /// The proxy contract address
+    pub proxy_contract_addr: Addr,
 }
 
 /// ## Description

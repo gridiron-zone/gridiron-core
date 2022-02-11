@@ -73,6 +73,7 @@ pub fn instantiate(
         block_time_last: 0,
         price0_cumulative_last: Uint128::zero(),
         price1_cumulative_last: Uint128::zero(),
+        proxy_contract_addr: addr_validate_to_lower(deps.api, params.proxy_address.as_str())?,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -173,6 +174,10 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.proxy_contract_addr != info.sender {
+        return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
+    }
     match msg {
         ExecuteMsg::UpdateConfig { .. } => Err(ContractError::NonSupported {}),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),

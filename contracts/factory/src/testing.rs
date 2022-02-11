@@ -436,6 +436,7 @@ fn create_pair() {
             pair_type: PairType::Xyk {},
             asset_infos: asset_infos.clone(),
             init_params: None,
+            // init_params: Some(to_binary(&XykPoolParamsForProxy { proxy_address: String::from("proxy_contract_addr") }).unwrap()),
         },
     )
     .unwrap();
@@ -508,6 +509,7 @@ fn register() {
         pair_type: PairType::Xyk {},
         asset_infos: asset_infos.clone(),
         init_params: None,
+        //init_params: Some(to_binary(&XykPoolParamsForProxy { proxy_address: String::from("proxy_contract_addr") }).unwrap()),
     };
 
     let env = mock_env();
@@ -584,6 +586,7 @@ fn register() {
         pair_type: PairType::Xyk {},
         asset_infos: asset_infos_2.clone(),
         init_params: None,
+        //init_params: Some(to_binary(&XykPoolParamsForProxy { proxy_address: String::from("proxy_contract_addr") }).unwrap()),
     };
 
     let env = mock_env();
