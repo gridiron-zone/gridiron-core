@@ -1,4 +1,4 @@
-use cosmwasm_std::{Binary, Coin};
+use cosmwasm_std::{Binary, Coin, Timestamp};
 use cw_storage_plus::{Bound, Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub pool_pair_address: String,
     pub custom_token_address: String,
+    pub swap_opening_date: Timestamp,
 }
 // put the length bytes at the first for compatibility with legacy singleton store
 pub const CONFIG: Item<Config> = Item::new("\u{0}\u{6}config");
@@ -54,7 +55,7 @@ pub struct SubMessageDetails {
     /// Name of the request type
     pub request_type: SubMessageType,
 
-    pub next_action : SubMessageNextAction,
+    pub next_action: SubMessageNextAction,
 
     pub sub_message_payload: Binary,
 

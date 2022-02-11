@@ -15,7 +15,7 @@ use astroport::generator::Cw20HookMsg as GeneratorHookMsg;
 use astroport::pair::{ConfigResponse, DEFAULT_SLIPPAGE, MAX_ALLOWED_SLIPPAGE};
 use astroport::pair::{
     CumulativePricesResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolResponse,
-    QueryMsg, ReverseSimulationResponse, SimulationResponse, TWAP_PRECISION,
+    QueryMsg, ReverseSimulationResponse, SimulationResponse, XykPoolParamsForProxy, TWAP_PRECISION,
 };
 use astroport::querier::{query_factory_config, query_fee_info, query_supply};
 use astroport::{token::InstantiateMsg as TokenInstantiateMsg, U256};
@@ -49,6 +49,10 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let params: XykPoolParamsForProxy = from_binary(&msg.init_params.unwrap())?;
+    // if true {
+    //     return Err(ContractError::Std(StdError::generic_err(format!("received {:?} in init_params of InstantiateMessage", params))))
+    // }
     msg.asset_infos[0].check(deps.api)?;
     msg.asset_infos[1].check(deps.api)?;
 

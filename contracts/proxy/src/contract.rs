@@ -15,7 +15,7 @@ use astroport::pair::{
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, Coin, ContractResult, Decimal, Deps,
     DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, Storage, SubMsg,
-    Uint128, WasmMsg,
+    Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -32,7 +32,13 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    configure_proxy(deps, env, info, msg.pool_pair_address, msg.custom_token_address)?;
+    configure_proxy(
+        deps,
+        env,
+        info,
+        msg.pool_pair_address,
+        msg.custom_token_address,
+    )?;
     Ok(Response::default())
 }
 
@@ -107,6 +113,9 @@ pub fn execute(
                 to_addr,
             )
         }
+        ExecuteMsg::SetSwapOpeningDate { swap_opening_date } => {
+            set_swap_opening_date(deps, env, swap_opening_date)
+        }
     }
 }
 
@@ -135,6 +144,7 @@ fn configure_proxy(
             config = Config {
                 pool_pair_address: String::from(""),
                 custom_token_address: String::from(""),
+                swap_opening_date: env.block.time,
             }
         }
     }
@@ -260,7 +270,10 @@ pub fn incr_allow_for_provide_liquidity(
         },
     )?;
 
-    Ok(resp.add_attribute("action", "Increase Allowance for proxy contract to Provide Liquidity"))
+    Ok(resp.add_attribute(
+        "action",
+        "Increase Allowance for proxy contract to Provide Liquidity",
+    ))
 }
 
 pub fn forward_provide_liquidity_to_astro(
@@ -446,6 +459,13 @@ pub fn swap(
     to: Option<Addr>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
+    // Check if the swap_enable_date is passed
+    if config.swap_opening_date.nanos() > env.block.time.nanos() {
+        //return error
+        return Err(ContractError::Std(StdError::generic_err(format!(
+            "Swap is not enabled yet!!!",
+        ))));
+    }
     let to_address: Option<String>;
     match to {
         Some(to_addr) => to_address = Some(String::from(to_addr.as_str())),
@@ -492,6 +512,29 @@ pub fn swap(
         .add_attribute("action", "Sending swap message")
         .set_data(data_msg))
 }
+
+pub fn set_swap_opening_date(
+    deps: DepsMut,
+    env: Env,
+    swap_opening_date: Timestamp,
+) -> Result<Response, ContractError> {
+    let mut config;
+    let config_load = CONFIG.load(deps.storage);
+    match config_load {
+        Ok(cfg) => config = cfg,
+        Err(e) => {
+            config = Config {
+                pool_pair_address: String::from(""),
+                custom_token_address: String::from(""),
+                swap_opening_date: env.block.time,
+            }
+        }
+    }
+    config.swap_opening_date = swap_opening_date;
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::default())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     let result = msg.result;
@@ -583,6 +626,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_reverse_simulation(deps, ask_asset)?)
         }
         QueryMsg::CumulativePrices {} => to_binary(&query_cumulative_prices(deps)?),
+        QueryMsg::GetSwapOpeningDate {} => to_binary(&query_swap_opening_date(deps)?),
     }
 }
 
@@ -621,4 +665,9 @@ fn query_cumulative_prices(deps: Deps) -> StdResult<CumulativePricesResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
     deps.querier
         .query_wasm_smart(config.pool_pair_address, &CumulativePrices {})
+}
+
+fn query_swap_opening_date(deps: Deps) -> StdResult<Timestamp> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    Ok(config.swap_opening_date)
 }

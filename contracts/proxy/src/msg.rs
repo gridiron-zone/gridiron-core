@@ -1,20 +1,26 @@
 use astroport::asset::Asset;
-use cosmwasm_std::Decimal;
+use cosmwasm_std::{Decimal, Timestamp};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 pub struct InstantiateMsg {
+    /// Pool pair contract address of astroport
     pub pool_pair_address: String,
+    /// contract address of Fury token
     pub custom_token_address: String,
+    pub authorized_liquidity_provider: String,
+    pub swap_opening_date: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     Configure {
+        /// Pool pair contract address of astroport
         pool_pair_address: String,
+        /// contract address of Fury token
         custom_token_address: String,
     },
     /// ## Description
@@ -38,6 +44,9 @@ pub enum ExecuteMsg {
         max_spread: Option<Decimal>,
         to: Option<String>,
     },
+    SetSwapOpeningDate {
+        swap_opening_date: Timestamp,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -55,6 +64,7 @@ pub enum QueryMsg {
     },
     /// Returns information about the cumulative prices in a [`CumulativePricesResponse`] object
     CumulativePrices {},
+    GetSwapOpeningDate {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

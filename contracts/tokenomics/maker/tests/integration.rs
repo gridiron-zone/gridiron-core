@@ -5,6 +5,7 @@ use astroport::factory::{PairConfig, PairType, UpdateAddr};
 use astroport::maker::{
     AssetWithLimit, BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
+use astroport::pair::XykPoolParamsForProxy;
 use astroport::token::InstantiateMsg as TokenInstantiateMsg;
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
 use cosmwasm_std::{
@@ -278,7 +279,7 @@ fn create_pair(
             &astroport::factory::ExecuteMsg::CreatePair {
                 pair_type: PairType::Xyk {},
                 asset_infos: asset_infos.clone(),
-                init_params: None,
+                init_params: Some(to_binary(&XykPoolParamsForProxy { proxy_address: String::from("proxy_contract_addr") }).unwrap()),
             },
             &[],
         )
