@@ -27,6 +27,9 @@ import { promisify } from 'util';
 
 import * as readline from 'node:readline';
 
+import * as chai from 'chai';
+const assert = chai.assert;
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -74,6 +77,10 @@ const main = async () => {
                 });
             });
         });
+
+        await checkLPTokenDetails(deploymentDetails);
+        await provideLiquidity(deploymentDetails);
+        console.log("Finished");
     } catch (error) {
         console.log(error);
     }
@@ -296,6 +303,50 @@ const savePairAddressToProxy = async (deploymentDetails) => {
         deploymentDetails.poolpairSavedToProxy = true;
         writeArtifact(deploymentDetails, terraClient.chainID)
     }
+}
+
+const checkLPTokenDetails = async (deploymentDetails) => {
+    let lpTokenDetails = await queryContract(deploymentDetails.poolLpTokenAddress, {
+        token_info: {}
+    });
+    console.log(JSON.stringify(lpTokenDetails));
+    assert.equal(lpTokenDetails['name'],"FURY-UUSD-LP");
+}
+
+const provideLiquidity = async (deploymentDetails) => {
+    //First increase allowance for proxy to spend from mint_wallet wallet
+    let increaseAllowanceMsg = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: "5000000000"
+        }
+    };
+    let incrAllowResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
+    let executeMsg = {
+        provide_liquidity:{
+            assets:[
+                {
+                    info:{
+                        native_token:{
+                            denom:"uusd"
+                        }
+                    },
+                    amount:"500000000"
+                },
+                {
+                    info:{
+                        token:{
+                            contract_addr:deploymentDetails.furyContractAddress
+                        }
+                    },
+                    amount:"5000000000"
+                }
+            ]
+        }
+    };
+    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, {'uusd': 500000000});
+    console.log(`Save Response - ${response['txhash']}`);
 }
 
 main()
