@@ -270,7 +270,7 @@ fn create_pair(
                 asset_infos: asset_infos.clone(),
                 init_params: Some(
                     to_binary(&XykPoolParamsForProxy {
-                        proxy_address: String::from("proxy_contract_addr"),
+                        proxy: String::from("proxy_contract_addr"),
                     })
                     .unwrap(),
                 ),
