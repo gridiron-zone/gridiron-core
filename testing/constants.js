@@ -8,12 +8,14 @@ export const PairContractPath = "../artifacts/astroport_pair.wasm"
 export const StakingContractPath = "../artifacts/astroport_staking.wasm"
 export const WhitelistContractPath = "../artifacts/astroport_whitelist.wasm"
 export const FactoryContractPath = "../artifacts/astroport_factory.wasm"
+export const ProxyContractPath = "../artifacts/astroport_proxy.wasm"
 
 export const terraClient = new LocalTerra();
 
 // Accounts
 export const deployer = terraClient.wallets.test1; // used as operator on all contracts
 // These can be the client wallets to interact
+export const walletTest1 = terraClient.wallets.test1;
 export const walletTest2 = terraClient.wallets.test2;
 export const walletTest3 = terraClient.wallets.test3;
 export const walletTest4 = terraClient.wallets.test4;

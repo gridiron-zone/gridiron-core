@@ -73,7 +73,7 @@ pub fn instantiate(
         block_time_last: 0,
         price0_cumulative_last: Uint128::zero(),
         price1_cumulative_last: Uint128::zero(),
-        proxy_contract_addr: addr_validate_to_lower(deps.api, params.proxy_address.as_str())?,
+        proxy_contract_addr: addr_validate_to_lower(deps.api, params.proxy.as_str())?,
     };
 
     CONFIG.save(deps.storage, &config)?;

@@ -1,17 +1,16 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{Decimal, Timestamp};
+use cosmwasm_std::{Decimal, Timestamp, Uint64};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 pub struct InstantiateMsg {
-    /// Pool pair contract address of astroport
-    pub pool_pair_address: String,
     /// contract address of Fury token
     pub custom_token_address: String,
     pub authorized_liquidity_provider: String,
-    pub swap_opening_date: Timestamp,
+    ///Time in nano seconds since EPOC when the swapping will be enabled
+    pub swap_opening_date: Uint64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -19,9 +18,11 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     Configure {
         /// Pool pair contract address of astroport
-        pool_pair_address: String,
+        pool_pair_address: Option<String>,
         /// contract address of Fury token
-        custom_token_address: String,
+        custom_token_address: Option<String>,
+        ///Time in nano seconds since EPOC when the swapping will be enabled
+        swap_opening_date: Uint64,
     },
     /// ## Description
     /// Receives a message of type [`Cw20ReceiveMsg`]

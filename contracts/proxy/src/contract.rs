@@ -15,7 +15,7 @@ use astroport::pair::{
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, Coin, ContractResult, Decimal, Deps,
     DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, Storage, SubMsg,
-    Timestamp, Uint128, WasmMsg,
+    Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -36,8 +36,9 @@ pub fn instantiate(
         deps,
         env,
         info,
-        msg.pool_pair_address,
-        msg.custom_token_address,
+        None,
+        Some(msg.custom_token_address),
+        msg.swap_opening_date,
     )?;
     Ok(Response::default())
 }
@@ -67,7 +68,8 @@ pub fn execute(
         ExecuteMsg::Configure {
             pool_pair_address,
             custom_token_address,
-        } => configure_proxy(deps, env, info, pool_pair_address, custom_token_address),
+            swap_opening_date,
+        } => configure_proxy(deps, env, info, pool_pair_address, custom_token_address, swap_opening_date),
         ExecuteMsg::Receive(received_message) => {
             process_received_message(deps, env, info, received_message)
         }
@@ -123,8 +125,9 @@ fn configure_proxy(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    pool_pair_address: String,
-    custom_token_address: String,
+    pool_pair_address: Option<String>,
+    custom_token_address: Option<String>,
+    swap_opening_date: Uint64,
 ) -> Result<Response, ContractError> {
     // let sender_addr = info.sender.clone();
     // let contract_address = env.clone().contract.address;
@@ -148,8 +151,13 @@ fn configure_proxy(
             }
         }
     }
-    config.pool_pair_address = pool_pair_address;
-    config.custom_token_address = custom_token_address;
+    if let Some(pool_pair_addr) = pool_pair_address {
+        config.pool_pair_address = pool_pair_addr;
+    }
+    if let Some(custom_token_addr) = custom_token_address {
+        config.custom_token_address = custom_token_addr;
+    }
+    config.swap_opening_date = Timestamp::from_nanos(swap_opening_date.u64());
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
 }

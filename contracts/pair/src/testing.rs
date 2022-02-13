@@ -69,7 +69,7 @@ fn proper_initialization() {
         // init_params: None,
         init_params: Some(
             to_binary(&XykPoolParamsForProxy {
-                proxy_address: String::from("proxy_contract_addr"),
+                proxy: String::from("proxy_contract_addr"),
             })
             .unwrap(),
         ),
@@ -1196,7 +1196,7 @@ fn test_query_pool() {
         // init_params: None,
         init_params: Some(
             to_binary(&XykPoolParamsForProxy {
-                proxy_address: String::from("proxy_contract_addr"),
+                proxy: String::from("proxy_contract_addr"),
             })
             .unwrap(),
         ),
@@ -1267,7 +1267,7 @@ fn test_query_share() {
         // init_params: None,
         init_params: Some(
             to_binary(&XykPoolParamsForProxy {
-                proxy_address: String::from("proxy_contract_addr"),
+                proxy: String::from("proxy_contract_addr"),
             })
             .unwrap(),
         ),

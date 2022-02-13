@@ -2,12 +2,14 @@ import {
     mintInitMessage,
     MintingContractPath,
     PairContractPath,
+    walletTest1,
     walletTest2,
     walletTest3,
     mint_wallet,
     terraClient,
     StakingContractPath,
     FactoryContractPath,
+    ProxyContractPath
 } from './constants.js';
 import {
     storeCode,
@@ -19,9 +21,12 @@ import {
     writeArtifact
 } from "./utils.js";
 
+import { primeAccountsWithFunds } from "./primeCustomAccounts.js";
+
 import { promisify } from 'util';
 
 import * as readline from 'node:readline';
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -32,6 +37,10 @@ const question = promisify(rl.question).bind(rl);
 const main = async () => {
     try {
         let deploymentDetails = readArtifact(terraClient.chainID);
+        const primeAccounts = await question('Do you want to preload custom accounts? (Y/N) ');
+        if (primeAccounts === 'Y' || primeAccounts === 'y') {
+            primeAccountsWithFunds();
+        }
         const startFresh = await question('Do you want to upload and deploy fresh? (Y/N)');
         if (startFresh === 'Y' || startFresh === 'y') {
             deploymentDetails = {};
@@ -47,9 +56,15 @@ const main = async () => {
                             uploadWhiteListContract(deploymentDetails).then(() => {
                                 uploadFactoryContract(deploymentDetails).then(() => {
                                     instantiateFactory(deploymentDetails).then(() => {
-                                        createPoolPairs(deploymentDetails).then(() => {
-                                            console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                            rl.close();
+                                        uploadProxyContract(deploymentDetails).then(() => {
+                                            instantiateProxyContract(deploymentDetails).then(() => {
+                                                createPoolPairs(deploymentDetails).then(() => {
+                                                    savePairAddressToProxy(deploymentDetails).then(() => {
+                                                        console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+                                                        rl.close();
+                                                    });
+                                                });
+                                            });
                                         });
                                     });
                                 });
@@ -83,6 +98,7 @@ const uploadFuryTokenContract = async (deploymentDetails) => {
         }
         if (deployFury) {
             console.log("Uploading Fury token contract");
+            console.log(`mint_wallet = ${mint_wallet.key}`);
             let contractId = await storeCode(mint_wallet, MintingContractPath); // Getting the contract id from local terra
             console.log(`Fury Token Contract ID: ${contractId}`);
             deploymentDetails.furyTokenCodeId = contractId;
@@ -114,6 +130,7 @@ const instantiateFuryTokenContract = async (deploymentDetails) => {
     }
 }
 
+
 const uploadPairContract = async (deploymentDetails) => {
     if (!deploymentDetails.pairCodeId) {
         console.log("Uploading pair contract (xyk)");
@@ -126,7 +143,7 @@ const uploadPairContract = async (deploymentDetails) => {
 
 const uploadStakingContract = async (deploymentDetails) => {
     if (!deploymentDetails.stakingCodeId) {
-        console.log("Uploading staking contract (xyk)");
+        console.log("Uploading staking contract");
         let contractId = await storeCode(mint_wallet, StakingContractPath); // Getting the contract id from local terra
         console.log(`Staking Contract ID: ${contractId}`);
         deploymentDetails.stakingCodeId = contractId;
@@ -164,7 +181,7 @@ const uploadWhiteListContract = async (deploymentDetails) => {
 
 const uploadFactoryContract = async (deploymentDetails) => {
     if (!deploymentDetails.factoryCodeId) {
-        console.log("Uploading factory contract (xyk)");
+        console.log("Uploading factory contract");
         let contractId = await storeCode(mint_wallet, FactoryContractPath); // Getting the contract id from local terra
         console.log(`Factory Contract ID: ${contractId}`);
         deploymentDetails.factoryCodeId = contractId;
@@ -196,9 +213,41 @@ const instantiateFactory = async (deploymentDetails) => {
     }
 }
 
+const uploadProxyContract = async (deploymentDetails) => {
+    if (!deploymentDetails.proxyCodeId) {
+        console.log("Uploading proxy contract");
+        let contractId = await storeCode(mint_wallet, ProxyContractPath); // Getting the contract id from local terra
+        console.log(`Proxy Contract ID: ${contractId}`);
+        deploymentDetails.proxyCodeId = contractId;
+        writeArtifact(deploymentDetails, terraClient.chainID);
+    }
+}
+
+const instantiateProxyContract = async (deploymentDetails) => {
+    if (!deploymentDetails.proxyContractAddress) {
+        console.log("Instantiating proxy contract");
+        let proxyInitMessage = {
+            /// Pool pair contract address of astroport
+            pool_pair_address: deploymentDetails.poolPairContractAddress,
+            /// contract address of Fury token
+            custom_token_address: deploymentDetails.furyContractAddress,
+            authorized_liquidity_provider: deploymentDetails.adminWallet,
+            swap_opening_date: "1644734115627110528",
+        }
+        console.log(JSON.stringify(proxyInitMessage, null, 2));
+        let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
+        let contractAddresses = result.logs[0].events[0].attributes.filter(element => element.key == 'contract_address').map(x => x.value);
+        deploymentDetails.proxyContractAddress = contractAddresses.shift();
+        writeArtifact(deploymentDetails, terraClient.chainID);
+    }
+}
+
 const createPoolPairs = async (deploymentDetails) => {
-    if (!deploymentDetails.poolpairContractAddress) {
-        response = await executeContract(mint_wallet, deploymentDetails.factoryAddress, {
+    if (!deploymentDetails.poolPairContractAddress) {
+        let init_param = { proxy: deploymentDetails.proxyContractAddress };
+        console.log(`init_param = ${JSON.stringify(init_param)}`);
+        console.log(Buffer.from(JSON.stringify(init_param)).toString('base64'));
+        let executeMsg = {
             create_pair: {
                 pair_type: { xyk: {} },
                 asset_infos: [
@@ -210,10 +259,42 @@ const createPoolPairs = async (deploymentDetails) => {
                     {
                         native_token: { denom: "uusd" }
                     }
-                ]
+                ],
+                init_params: Buffer.from(JSON.stringify(init_param)).toString('base64')
             }
+        };
+        console.log(`executeMsg = ${executeMsg}`);
+        let response = await executeContract(mint_wallet, deploymentDetails.factoryAddress, executeMsg);
+
+        deploymentDetails.poolPairContractAddress = response.logs[0].eventsByType.from_contract.pair_contract_addr[0]
+
+        let pool_info = await queryContract(deploymentDetails.poolPairContractAddress, {
+            pair: {}
+        })
+
+        deploymentDetails.poolLpTokenAddress = pool_info.liquidity_token
+
+        console.log(`Pair successfully created! Address: ${deploymentDetails.poolPairContractAddress}`)
+        writeArtifact(deploymentDetails, terraClient.chainID)
+    }
+}
+
+const savePairAddressToProxy = async (deploymentDetails) => {
+    if (!deploymentDetails.poolpairSavedToProxy) {
+        //Fetch configuration
+        let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
+            configuration: {}
         });
-        console.log(`Transfer Response - ${response['txhash']}`) //  Use the Hash to query the tx on : https://finder.terra.money/localterra/
+        configResponse.pool_pair_address = deploymentDetails.poolPairContractAddress;
+        console.log(`Configuration = ${JSON.stringify(configResponse)}`);
+        let executeMsg = {
+            configure: configResponse
+        };
+        console.log(`executeMsg = ${executeMsg}`);
+        let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg);
+        console.log(`Save Response - ${response['txhash']}`);
+        deploymentDetails.poolpairSavedToProxy = true;
+        writeArtifact(deploymentDetails, terraClient.chainID)
     }
 }
 

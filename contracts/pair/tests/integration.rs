@@ -86,7 +86,7 @@ fn instantiate_pair(mut router: &mut TerraApp, owner: &Addr) -> Addr {
         // init_params: None,
         init_params: Some(
             to_binary(&XykPoolParamsForProxy {
-                proxy_address: String::from("proxy_contract_addr"),
+                proxy: String::from("proxy_contract_addr"),
             })
             .unwrap(),
         ),
@@ -574,7 +574,7 @@ fn create_pair_with_same_assets() {
         // init_params: None,
         init_params: Some(
             to_binary(&XykPoolParamsForProxy {
-                proxy_address: String::from("proxy_contract_addr"),
+                proxy: String::from("proxy_contract_addr"),
             })
             .unwrap(),
         ),
