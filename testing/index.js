@@ -51,7 +51,7 @@ const main = async () => {
         if (!deploymentDetails.adminWallet) {
             deploymentDetails.adminWallet = mint_wallet.key.accAddress;
         }
-        uploadFuryTokenContract(deploymentDetails).then(() => {
+        await uploadFuryTokenContract(deploymentDetails).then(() => {
             instantiateFuryTokenContract(deploymentDetails).then(() => {
                 uploadPairContract(deploymentDetails).then(() => {
                     uploadStakingContract(deploymentDetails).then(() => {
@@ -65,6 +65,9 @@ const main = async () => {
                                                     savePairAddressToProxy(deploymentDetails).then(() => {
                                                         console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
                                                         rl.close();
+                                                        checkLPTokenDetails(deploymentDetails).then(() => {
+                                                            provideLiquidity(deploymentDetails);
+                                                        });                                                
                                                     });
                                                 });
                                             });
@@ -77,9 +80,6 @@ const main = async () => {
                 });
             });
         });
-
-        await checkLPTokenDetails(deploymentDetails);
-        await provideLiquidity(deploymentDetails);
         console.log("Finished");
     } catch (error) {
         console.log(error);
@@ -345,7 +345,7 @@ const provideLiquidity = async (deploymentDetails) => {
             ]
         }
     };
-    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, {'uusd': 500000000});
+    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, {'uusd': 500500000});
     console.log(`Save Response - ${response['txhash']}`);
 }
 
