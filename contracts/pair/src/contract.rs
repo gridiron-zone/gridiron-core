@@ -174,10 +174,6 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.proxy_contract_addr != info.sender {
-        return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
-    }
     match msg {
         ExecuteMsg::UpdateConfig { .. } => Err(ContractError::NonSupported {}),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
@@ -201,6 +197,11 @@ pub fn execute(
             max_spread,
             to,
         } => {
+            let config = CONFIG.load(deps.storage)?;
+            if config.proxy_contract_addr != info.sender {
+                return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
+            }
+        
             offer_asset.info.check(deps.api)?;
             if !offer_asset.is_native_token() {
                 return Err(ContractError::Unauthorized {});
@@ -326,6 +327,11 @@ pub fn provide_liquidity(
     auto_stake: Option<bool>,
     receiver: Option<String>,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.proxy_contract_addr != info.sender {
+        return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
+    }
+
     assets[0].info.check(deps.api)?;
     assets[1].info.check(deps.api)?;
 

@@ -280,7 +280,7 @@ fn create_pair() {
     let msg = ExecuteMsg::CreatePair {
         pair_type: PairType::Xyk {},
         asset_infos: asset_infos.clone(),
-        init_params: Some(to_binary(&XykPoolParamsForProxy { proxy_address: String::from("proxy_contract_addr") }).unwrap()),
+        init_params: Some(to_binary(&XykPoolParamsForProxy { proxy: String::from("proxy_contract_addr") }).unwrap()),
     };
 
     let res = app

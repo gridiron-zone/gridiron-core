@@ -40,11 +40,11 @@ const question = promisify(rl.question).bind(rl);
 const main = async () => {
     try {
         let deploymentDetails = readArtifact(terraClient.chainID);
-        const primeAccounts = await question('Do you want to preload custom accounts? (Y/N) ');
+        const primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
         if (primeAccounts === 'Y' || primeAccounts === 'y') {
-            primeAccountsWithFunds();
+            await primeAccountsWithFunds();
         }
-        const startFresh = await question('Do you want to upload and deploy fresh? (Y/N)');
+        const startFresh = await question('Do you want to upload and deploy fresh? (y/N)');
         if (startFresh === 'Y' || startFresh === 'y') {
             deploymentDetails = {};
         }
@@ -65,9 +65,7 @@ const main = async () => {
                                                     savePairAddressToProxy(deploymentDetails).then(() => {
                                                         console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
                                                         rl.close();
-                                                        checkLPTokenDetails(deploymentDetails).then(() => {
-                                                            provideLiquidity(deploymentDetails);
-                                                        });                                                
+                                                        performOperations(deploymentDetails);
                                                     });
                                                 });
                                             });
@@ -89,10 +87,10 @@ const main = async () => {
 const uploadFuryTokenContract = async (deploymentDetails) => {
     if (!deploymentDetails.furyTokenCodeId) {
         let deployFury = false;
-        const answer = await question('Do you want to upload Fury Token Contract? (Y/N) ');
-        if (answer === 'Y') {
+        const answer = await question('Do you want to upload Fury Token Contract? (y/N) ');
+        if (answer === 'Y' || answer === 'y') {
             deployFury = true;
-        } else if (answer === 'N') {
+        } else if (answer === 'N' || answer === 'n') {
             const codeId = await question('Please provide code id for Fury Token contract: ');
             if (isNaN(codeId)) {
                 deployFury = true;
@@ -117,10 +115,10 @@ const uploadFuryTokenContract = async (deploymentDetails) => {
 const instantiateFuryTokenContract = async (deploymentDetails) => {
     if (!deploymentDetails.furyContractAddress) {
         let instantiateFury = false;
-        const answer = await question('Do you want to instantiate Fury Token Contract? (Y/N) ');
-        if (answer === 'Y') {
+        const answer = await question('Do you want to instantiate Fury Token Contract? (y/N) ');
+        if (answer === 'Y' || answer === 'y') {
             instantiateFury = true;
-        } else if (answer === 'N') {
+        } else if (answer === 'N' || answer === 'n') {
             const contractAddress = await question('Please provide contract address for Fury Token contract: ');
             deploymentDetails.furyContractAddress = contractAddress;
             instantiateFury = false;
@@ -305,12 +303,25 @@ const savePairAddressToProxy = async (deploymentDetails) => {
     }
 }
 
+const performOperations = async (deploymentDetails) => {
+    checkLPTokenDetails(deploymentDetails).then(() => {
+        provideLiquidity(deploymentDetails).then(() => {
+            queryPool(deploymentDetails).then(() => {
+                performSimulation(deploymentDetails).then(() => {
+                    performSwap(deploymentDetails).then(() => {
+                        console.log("Finished!");
+                    });
+                })
+            });
+        });
+    });
+}
 const checkLPTokenDetails = async (deploymentDetails) => {
     let lpTokenDetails = await queryContract(deploymentDetails.poolLpTokenAddress, {
         token_info: {}
     });
     console.log(JSON.stringify(lpTokenDetails));
-    assert.equal(lpTokenDetails['name'],"FURY-UUSD-LP");
+    assert.equal(lpTokenDetails['name'], "FURY-UUSD-LP");
 }
 
 const provideLiquidity = async (deploymentDetails) => {
@@ -324,29 +335,168 @@ const provideLiquidity = async (deploymentDetails) => {
     let incrAllowResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
     console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
     let executeMsg = {
-        provide_liquidity:{
-            assets:[
+        provide_liquidity: {
+            assets: [
                 {
-                    info:{
-                        native_token:{
-                            denom:"uusd"
+                    info: {
+                        native_token: {
+                            denom: "uusd"
                         }
                     },
-                    amount:"500000000"
+                    amount: "500000000"
                 },
                 {
-                    info:{
-                        token:{
-                            contract_addr:deploymentDetails.furyContractAddress
+                    info: {
+                        token: {
+                            contract_addr: deploymentDetails.furyContractAddress
                         }
                     },
-                    amount:"5000000000"
+                    amount: "5000000000"
                 }
             ]
         }
     };
-    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, {'uusd': 500500000});
+    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 500500000 });
     console.log(`Save Response - ${response['txhash']}`);
+}
+
+const queryPool = async (deploymentDetails) => {
+    console.log("querying pool details");
+    let poolDetails = await queryContract(deploymentDetails.proxyContractAddress, {
+        pool: {}
+    });
+    console.log(JSON.stringify(poolDetails));
+}
+
+const performSimulation = async (deploymentDetails) => {
+    simulationOfferNative(deploymentDetails).then(() => {
+        simulationOfferFury(deploymentDetails).then(() => {
+            reverseSimulationAskNative(deploymentDetails).then(() => {
+                reverseSimulationAskFury(deploymentDetails);
+            });
+        });
+    });
+}
+
+const performSwap = async (deploymentDetails) => {
+    buyFuryTokens(deploymentDetails).then(() => {
+        sellFuryTokens(deploymentDetails).then(() => {
+
+        });
+    });
+}
+
+const buyFuryTokens = async (deploymentDetails) => {
+    let buyFuryMsg = {
+        swap: {
+            sender: mint_wallet.key.accAddress,
+            offer_asset: {
+                info: {
+                    native_token: {
+                        denom: "uusd"
+                    }
+                },
+                amount: "10000"
+            }
+        }
+    };
+    let buyFuryResp = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, buyFuryMsg, { 'uusd': 10010 });
+    console.log(`Buy Fury swap response tx hash = ${buyFuryResp['txhash']}`);
+}
+
+const sellFuryTokens = async (deploymentDetails) => {
+    let swapMsg = {
+        swap: {
+            sender: mint_wallet.key.accAddress,
+            offer_asset: {
+                info: {
+                    token: {
+                        contract_addr: deploymentDetails.furyContractAddress
+                    }
+                },
+                amount: "10000"
+            }
+        }
+    };
+    let base64Msg = Buffer.from(JSON.stringify(swapMsg)).toString('base64');
+
+    let sendMsg = {
+        send: {
+            contract: deploymentDetails.proxyContractAddress,
+            amount: "10000",
+            msg: base64Msg
+        }
+    };
+    let sellFuryResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, sendMsg);
+    console.log(`Sell Fury swap response tx hash = ${sellFuryResp['txhash']}`);
+}
+
+const simulationOfferNative = async (deploymentDetails) => {
+    console.log("performing simulation for offering native coins");
+    let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
+        simulation: {
+            offer_asset: {
+                info: {
+                    native_token: {
+                        denom: "uusd"
+                    }
+                },
+                amount: "100000000"
+            }
+        }
+    });
+    console.log(JSON.stringify(simulationResult));
+}
+
+const simulationOfferFury = async (deploymentDetails) => {
+    console.log("performing simulation for offering Fury tokens");
+    let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
+        simulation: {
+            offer_asset: {
+                info: {
+                    token: {
+                        contract_addr: deploymentDetails.furyContractAddress
+                    }
+                },
+                amount: "100000000"
+            }
+        }
+    });
+    console.log(JSON.stringify(simulationResult));
+}
+
+const reverseSimulationAskNative = async (deploymentDetails) => {
+    console.log("performing reverse simulation asking for native coins");
+    let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
+        reverse_simulation: {
+            ask_asset: {
+                info: {
+                    native_token: {
+                        denom: "uusd"
+                    }
+                },
+                amount: "1000000"
+            }
+        }
+    });
+    console.log(JSON.stringify(simulationResult));
+}
+
+const reverseSimulationAskFury = async (deploymentDetails) => {
+    console.log("performing reverse simulation asking for Fury tokens");
+    let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
+        reverse_simulation: {
+            ask_asset: {
+                info: {
+                    token: {
+                        contract_addr: deploymentDetails.furyContractAddress
+                    }
+                },
+                amount: "1000000"
+            }
+        }
+    });
+    console.log(JSON.stringify(simulationResult));
 }
 
 main()

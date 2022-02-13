@@ -108,7 +108,6 @@ pub fn execute(
                 deps,
                 env,
                 info.clone(),
-                info.sender,
                 offer_asset,
                 belief_price,
                 max_spread,
@@ -460,7 +459,6 @@ pub fn swap(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    sender: Addr,
     offer_asset: Asset,
     belief_price: Option<Decimal>,
     max_spread: Option<Decimal>,
@@ -474,6 +472,7 @@ pub fn swap(
             "Swap is not enabled yet!!!",
         ))));
     }
+    // Swap is enabled so proceed
     let to_address: Option<String>;
     match to {
         Some(to_addr) => to_address = Some(String::from(to_addr.as_str())),
