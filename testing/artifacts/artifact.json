@@ -1,0 +1,12 @@
+{
+  "adminWallet": "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k",
+  "furyTokenCodeId": 76,
+  "furyContractAddress": "terra1kc9cg4sqdrv4xp2mpuvjepz9kgzelg0km95upv",
+  "pairCodeId": 77,
+  "stakingCodeId": 78,
+  "stakingAddress": "terra1xd5mqvgwvyeyqygpwa6znufsgpfnlgy6gvjly4",
+  "xastroAddress": "terra1xk3v7tpjvtj4fevdh83v60gngdnmc6xmt3h589",
+  "whitelistCodeId": 79,
+  "factoryCodeId": 80,
+  "factoryAddress": "terra1g4vspgsu6w05thc2umjy4w97a5px8pm5thrkky"
+}
