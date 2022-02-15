@@ -11,7 +11,7 @@ pub struct InstantiateMsg {
     /// This address has the authority to pump in liquidity
     /// The LP tokens for this address will be returned to this address
     pub authorized_liquidity_provider: String,
-    /// The LP tokens for all liquidity providers except 
+    /// The LP tokens for all liquidity providers except
     /// authorised_liquidity_provider will be stored to this address
     pub default_lp_tokens_holder: String,
     ///Time in nano seconds since EPOC when the swapping will be enabled

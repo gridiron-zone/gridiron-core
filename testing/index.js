@@ -31,6 +31,7 @@ import { promisify } from 'util';
 import * as readline from 'node:readline';
 
 import * as chai from 'chai';
+import { Coin } from '@terra-money/terra.js';
 const assert = chai.assert;
 
 const rl = readline.createInterface({
@@ -363,12 +364,20 @@ const savePairAddressToProxy = async (deploymentDetails) => {
 
 const performOperations = async (deploymentDetails) => {
     checkLPTokenDetails(deploymentDetails).then(() => {
-        provideLiquidityAuthorised(deploymentDetails).then(() => {
-            queryPool(deploymentDetails).then(() => {
-                performSimulation(deploymentDetails).then(() => {
-                    performSwap(deploymentDetails).then(() => {
-                        provideLiquidityGeneral(deploymentDetails).then(() => {
-                            console.log("Finished operations");
+        checkLPTokenBalances(deploymentDetails).then(() => {
+            provideLiquidityAuthorised(deploymentDetails).then(() => {
+                checkLPTokenBalances(deploymentDetails).then(() => {
+                    queryPool(deploymentDetails).then(() => {
+                        performSimulation(deploymentDetails).then(() => {
+                            performSwap(deploymentDetails).then(() => {
+                                checkLPTokenBalances(deploymentDetails).then(() => {
+                                    provideLiquidityGeneral(deploymentDetails).then(() => {
+                                        checkLPTokenBalances(deploymentDetails).then(() => {
+                                            console.log("Finished operations");
+                                        });
+                                    });
+                                });
+                            });
                         });
                     });
                 });
@@ -382,6 +391,31 @@ const checkLPTokenDetails = async (deploymentDetails) => {
     });
     console.log(JSON.stringify(lpTokenDetails));
     assert.equal(lpTokenDetails['name'], "FURY-UUSD-LP");
+}
+
+const checkLPTokenBalances = async (deploymentDetails) => {
+    console.log("Getting LPToken balances");
+    await queryContract(deploymentDetails.poolLpTokenAddress, {
+        all_accounts: {}
+    }).then((allAccounts) => {
+        console.log(JSON.stringify(allAccounts.accounts));
+        queryContract(deploymentDetails.poolLpTokenAddress, {
+            balance: { address: allAccounts.accounts[0] }
+        }).then((balance0) => {
+            console.log(`Balance of ${allAccounts.accounts[0]} : ${JSON.stringify(balance0)}`);
+            queryContract(deploymentDetails.poolLpTokenAddress, {
+                balance: { address: allAccounts.accounts[1] }
+            }).then((balance1) => {
+                console.log(`Balance of ${allAccounts.accounts[1]} : ${JSON.stringify(balance1)}`);
+            });
+        });
+    // allAccounts.accounts.forEach((account) => {
+        //     let balance = await queryContract(deploymentDetails.poolLpTokenAddress, {
+        //         balance: { address: account }
+        //     });
+        //     console.log(`Balance of ${account} : ${JSON.stringify(balance)}`);
+        // });
+    });
 }
 
 const provideLiquidityAuthorised = async (deploymentDetails) => {
@@ -416,7 +450,12 @@ const provideLiquidityAuthorised = async (deploymentDetails) => {
             ]
         }
     };
-    let response = await executeContract(treasury_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 500500000 });
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "500000000"));
+    console.log(`tax = ${tax}`);
+    let funds = Number(500000000);
+    funds = funds + Number(tax.amount);
+    console.log(`funds = ${funds}`);
+    let response = await executeContract(treasury_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from treasury) Response - ${response['txhash']}`);
 }
 
@@ -452,8 +491,12 @@ const provideLiquidityGeneral = async (deploymentDetails) => {
             ]
         }
     };
-    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 5005000 });
-
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "5000000"));
+    console.log(`tax = ${tax}`);
+    let funds = Number(5000000);
+    funds = funds + Number(tax.amount);
+    console.log(`funds = ${funds}`);
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
