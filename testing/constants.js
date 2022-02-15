@@ -29,6 +29,15 @@ export const walletTest10 = terraClient.wallets.test10;
 const mk1 = new MnemonicKey({mnemonic: "awesome festival volume rifle diagram suffer rhythm knock unlock reveal marine transfer lumber faint walnut love hover beach amazing robust oppose moon west will",});
 export const mint_wallet = terraClient.wallet(mk1);
 
+const mk2 = new MnemonicKey({mnemonic: "kiwi habit donor choice control fruit fame hamster trip aerobic juice lens lawn popular fossil taste venture furnace october income advice window opera helmet",});
+export const treasury_wallet = terraClient.wallet(mk2);
+
+const mk3 = new MnemonicKey({mnemonic: "job dilemma fold hurry solar strong solar priority lawsuit pass demise senior purpose useless outdoor jaguar identify enhance dirt vehicle fun nasty dragon still",});
+export const liquidity_wallet = terraClient.wallet(mk3);
+
+const mk4 = new MnemonicKey({mnemonic: "snap merit day trash key reopen stamp normal diagram vacant economy donate winner sister aerobic artist cheese bright palace athlete mind snack crawl bridge",});
+export const marketing_wallet = terraClient.wallet(mk4);
+
 export const swapinitMessage = {
     pair_code_id: 321,
     token_code_id: 123

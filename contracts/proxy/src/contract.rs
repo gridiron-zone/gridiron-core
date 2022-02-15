@@ -32,14 +32,21 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    configure_proxy(
-        deps,
-        env,
-        info,
-        None,
-        Some(msg.custom_token_address),
-        msg.swap_opening_date,
-    )?;
+    let cfg = Config {
+        custom_token_address: msg.custom_token_address,
+        authorized_liquidity_provider: addr_validate_to_lower(
+            deps.api,
+            msg.authorized_liquidity_provider.as_str(),
+        )?,
+        default_lp_tokens_holder: addr_validate_to_lower(
+            deps.api,
+            msg.default_lp_tokens_holder.as_str(),
+        )?,
+        swap_opening_date: Timestamp::from_nanos(msg.swap_opening_date.u64()),
+        pool_pair_address: String::default(),
+    };
+    CONFIG.save(deps.storage, &cfg)?;
+    // configure_proxy(deps, env, info, None, msg.swap_opening_date)?;
     Ok(Response::default())
 }
 
@@ -67,9 +74,8 @@ pub fn execute(
     match msg {
         ExecuteMsg::Configure {
             pool_pair_address,
-            custom_token_address,
             swap_opening_date,
-        } => configure_proxy(deps, env, info, pool_pair_address, custom_token_address, swap_opening_date),
+        } => configure_proxy(deps, env, info, pool_pair_address, swap_opening_date),
         ExecuteMsg::Receive(received_message) => {
             process_received_message(deps, env, info, received_message)
         }
@@ -77,16 +83,24 @@ pub fn execute(
             assets,
             slippage_tolerance,
             auto_stake,
-            receiver,
-        } => provide_liquidity(
-            deps,
-            env,
-            info,
-            assets,
-            slippage_tolerance,
-            auto_stake,
-            receiver,
-        ),
+        } => {
+            let config = CONFIG.load(deps.storage)?;
+            let receiver: Option<String>;
+            if info.sender == config.authorized_liquidity_provider {
+                receiver = Some(config.authorized_liquidity_provider.to_string());
+            } else {
+                receiver = Some(config.default_lp_tokens_holder.to_string());
+            }
+            provide_liquidity(
+                deps,
+                env,
+                info,
+                assets,
+                slippage_tolerance,
+                auto_stake,
+                receiver,
+            )
+        }
         ExecuteMsg::Swap {
             offer_asset,
             belief_price,
@@ -125,7 +139,6 @@ fn configure_proxy(
     env: Env,
     info: MessageInfo,
     pool_pair_address: Option<String>,
-    custom_token_address: Option<String>,
     swap_opening_date: Uint64,
 ) -> Result<Response, ContractError> {
     // let sender_addr = info.sender.clone();
@@ -138,23 +151,9 @@ fn configure_proxy(
     //     ))));
     // }
 
-    let mut config;
-    let config_load = CONFIG.load(deps.storage);
-    match config_load {
-        Ok(cfg) => config = cfg,
-        Err(e) => {
-            config = Config {
-                pool_pair_address: String::from(""),
-                custom_token_address: String::from(""),
-                swap_opening_date: env.block.time,
-            }
-        }
-    }
+    let mut config = CONFIG.load(deps.storage)?;
     if let Some(pool_pair_addr) = pool_pair_address {
         config.pool_pair_address = pool_pair_addr;
-    }
-    if let Some(custom_token_addr) = custom_token_address {
-        config.custom_token_address = custom_token_addr;
     }
     config.swap_opening_date = Timestamp::from_nanos(swap_opening_date.u64());
     CONFIG.save(deps.storage, &config)?;
@@ -522,21 +521,10 @@ pub fn swap(
 
 pub fn set_swap_opening_date(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     swap_opening_date: Timestamp,
 ) -> Result<Response, ContractError> {
-    let mut config;
-    let config_load = CONFIG.load(deps.storage);
-    match config_load {
-        Ok(cfg) => config = cfg,
-        Err(e) => {
-            config = Config {
-                pool_pair_address: String::from(""),
-                custom_token_address: String::from(""),
-                swap_opening_date: env.block.time,
-            }
-        }
-    }
+    let mut config = CONFIG.load(deps.storage)?;
     config.swap_opening_date = swap_opening_date;
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())

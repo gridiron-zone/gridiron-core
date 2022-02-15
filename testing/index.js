@@ -6,6 +6,9 @@ import {
     walletTest2,
     walletTest3,
     mint_wallet,
+    treasury_wallet,
+    liquidity_wallet,
+    marketing_wallet,
     terraClient,
     StakingContractPath,
     FactoryContractPath,
@@ -39,33 +42,58 @@ const question = promisify(rl.question).bind(rl);
 
 const main = async () => {
     try {
+        terraClient.chainID = "localterra";
         let deploymentDetails = readArtifact(terraClient.chainID);
         const primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
         if (primeAccounts === 'Y' || primeAccounts === 'y') {
-            await primeAccountsWithFunds();
+            primeAccountsWithFunds().then((txHash) => {
+                console.log(txHash);
+                proceedToSetup(deploymentDetails);
+            });
+        } else {
+            proceedToSetup(deploymentDetails);
         }
-        const startFresh = await question('Do you want to upload and deploy fresh? (y/N)');
-        if (startFresh === 'Y' || startFresh === 'y') {
-            deploymentDetails = {};
-        }
-        if (!deploymentDetails.adminWallet) {
-            deploymentDetails.adminWallet = mint_wallet.key.accAddress;
-        }
-        await uploadFuryTokenContract(deploymentDetails).then(() => {
-            instantiateFuryTokenContract(deploymentDetails).then(() => {
-                uploadPairContract(deploymentDetails).then(() => {
-                    uploadStakingContract(deploymentDetails).then(() => {
-                        instantiateStaking(deploymentDetails).then(() => {
-                            uploadWhiteListContract(deploymentDetails).then(() => {
-                                uploadFactoryContract(deploymentDetails).then(() => {
-                                    instantiateFactory(deploymentDetails).then(() => {
-                                        uploadProxyContract(deploymentDetails).then(() => {
-                                            instantiateProxyContract(deploymentDetails).then(() => {
-                                                createPoolPairs(deploymentDetails).then(() => {
-                                                    savePairAddressToProxy(deploymentDetails).then(() => {
-                                                        console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                                        rl.close();
-                                                        performOperations(deploymentDetails);
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+const proceedToSetup = async (deploymentDetails) => {
+    const startFresh = await question('Do you want to upload and deploy fresh? (y/N)');
+    if (startFresh === 'Y' || startFresh === 'y') {
+        deploymentDetails = {};
+    }
+    if (!deploymentDetails.adminWallet) {
+        deploymentDetails.adminWallet = mint_wallet.key.accAddress;
+    }
+    if (!deploymentDetails.authLiquidityProvider) {
+        deploymentDetails.authLiquidityProvider = treasury_wallet.key.accAddress;
+    }
+    if (!deploymentDetails.defaultLPTokenHolder) {
+        deploymentDetails.defaultLPTokenHolder = liquidity_wallet.key.accAddress;
+    }
+    uploadFuryTokenContract(deploymentDetails).then(() => {
+        instantiateFuryTokenContract(deploymentDetails).then(() => {
+            transferFuryToTreasury(deploymentDetails).then(() => {
+                transferFuryToMarketing(deploymentDetails).then(() => {
+                    uploadPairContract(deploymentDetails).then(() => {
+                        uploadStakingContract(deploymentDetails).then(() => {
+                            instantiateStaking(deploymentDetails).then(() => {
+                                uploadWhiteListContract(deploymentDetails).then(() => {
+                                    uploadFactoryContract(deploymentDetails).then(() => {
+                                        instantiateFactory(deploymentDetails).then(() => {
+                                            uploadProxyContract(deploymentDetails).then(() => {
+                                                instantiateProxyContract(deploymentDetails).then(() => {
+                                                    queryPorxyConfiguration(deploymentDetails).then(() => {
+                                                        createPoolPairs(deploymentDetails).then(() => {
+                                                            savePairAddressToProxy(deploymentDetails).then(() => {
+                                                                queryPorxyConfiguration(deploymentDetails).then(() => {
+                                                                    console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+                                                                    rl.close();
+                                                                    performOperations(deploymentDetails);
+                                                                });
+                                                            });
+                                                        });
                                                     });
                                                 });
                                             });
@@ -78,13 +106,11 @@ const main = async () => {
                 });
             });
         });
-        console.log("Finished");
-    } catch (error) {
-        console.log(error);
-    }
+    });
 }
 
 const uploadFuryTokenContract = async (deploymentDetails) => {
+    console.log(`terraClient.chainID = ${terraClient.chainID}`);
     if (!deploymentDetails.furyTokenCodeId) {
         let deployFury = false;
         const answer = await question('Do you want to upload Fury Token Contract? (y/N) ');
@@ -135,6 +161,29 @@ const instantiateFuryTokenContract = async (deploymentDetails) => {
     }
 }
 
+const transferFuryToTreasury = async (deploymentDetails) => {
+    let transferFuryToTreasuryMsg = {
+        transfer: {
+            recipient: treasury_wallet.key.accAddress,
+            amount: "5000000000"
+        }
+    };
+    console.log(`transferFuryToTreasuryMsg = ${JSON.stringify(transferFuryToTreasuryMsg)}`);
+    let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, transferFuryToTreasuryMsg);
+    console.log(`transferFuryToTreasuryMsg Response - ${response['txhash']}`);
+}
+
+const transferFuryToMarketing = async (deploymentDetails) => {
+    let transferFuryToMarketingMsg = {
+        transfer: {
+            recipient: marketing_wallet.key.accAddress,
+            amount: "50000000"
+        }
+    };
+    console.log(`transferFuryToMarketingMsg = ${JSON.stringify(transferFuryToMarketingMsg)}`);
+    let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, transferFuryToMarketingMsg);
+    console.log(`transferFuryToMarketingMsg Response - ${response['txhash']}`);
+}
 
 const uploadPairContract = async (deploymentDetails) => {
     if (!deploymentDetails.pairCodeId) {
@@ -236,7 +285,8 @@ const instantiateProxyContract = async (deploymentDetails) => {
             pool_pair_address: deploymentDetails.poolPairContractAddress,
             /// contract address of Fury token
             custom_token_address: deploymentDetails.furyContractAddress,
-            authorized_liquidity_provider: deploymentDetails.adminWallet,
+            authorized_liquidity_provider: deploymentDetails.authLiquidityProvider,
+            default_lp_tokens_holder: deploymentDetails.defaultLPTokenHolder,
             swap_opening_date: "1644734115627110528",
         }
         console.log(JSON.stringify(proxyInitMessage, null, 2));
@@ -245,6 +295,14 @@ const instantiateProxyContract = async (deploymentDetails) => {
         deploymentDetails.proxyContractAddress = contractAddresses.shift();
         writeArtifact(deploymentDetails, terraClient.chainID);
     }
+}
+
+const queryPorxyConfiguration = async (deploymentDetails) => {
+    //Fetch configuration
+    let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
+        configuration: {}
+    });
+    console.log(JSON.stringify(configResponse));
 }
 
 const createPoolPairs = async (deploymentDetails) => {
@@ -305,13 +363,15 @@ const savePairAddressToProxy = async (deploymentDetails) => {
 
 const performOperations = async (deploymentDetails) => {
     checkLPTokenDetails(deploymentDetails).then(() => {
-        provideLiquidity(deploymentDetails).then(() => {
+        provideLiquidityAuthorised(deploymentDetails).then(() => {
             queryPool(deploymentDetails).then(() => {
                 performSimulation(deploymentDetails).then(() => {
                     performSwap(deploymentDetails).then(() => {
-                        console.log("Finished!");
+                        provideLiquidityGeneral(deploymentDetails).then(() => {
+                            console.log("Finished operations");
+                        });
                     });
-                })
+                });
             });
         });
     });
@@ -324,7 +384,7 @@ const checkLPTokenDetails = async (deploymentDetails) => {
     assert.equal(lpTokenDetails['name'], "FURY-UUSD-LP");
 }
 
-const provideLiquidity = async (deploymentDetails) => {
+const provideLiquidityAuthorised = async (deploymentDetails) => {
     //First increase allowance for proxy to spend from mint_wallet wallet
     let increaseAllowanceMsg = {
         increase_allowance: {
@@ -332,7 +392,7 @@ const provideLiquidity = async (deploymentDetails) => {
             amount: "5000000000"
         }
     };
-    let incrAllowResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    let incrAllowResp = await executeContract(treasury_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
     console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
     let executeMsg = {
         provide_liquidity: {
@@ -356,8 +416,45 @@ const provideLiquidity = async (deploymentDetails) => {
             ]
         }
     };
-    let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 500500000 });
-    console.log(`Save Response - ${response['txhash']}`);
+    let response = await executeContract(treasury_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 500500000 });
+    console.log(`Provide Liquidity (from treasury) Response - ${response['txhash']}`);
+}
+
+const provideLiquidityGeneral = async (deploymentDetails) => {
+    //First increase allowance for proxy to spend from marketing_wallet wallet
+    let increaseAllowanceMsg = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: "50000000"
+        }
+    };
+    let incrAllowResp = await executeContract(marketing_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
+    let executeMsg = {
+        provide_liquidity: {
+            assets: [
+                {
+                    info: {
+                        native_token: {
+                            denom: "uusd"
+                        }
+                    },
+                    amount: "5000000"
+                },
+                {
+                    info: {
+                        token: {
+                            contract_addr: deploymentDetails.furyContractAddress
+                        }
+                    },
+                    amount: "50000000"
+                }
+            ]
+        }
+    };
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': 5005000 });
+
+    console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
 const queryPool = async (deploymentDetails) => {
@@ -414,16 +511,17 @@ const sellFuryTokens = async (deploymentDetails) => {
                         contract_addr: deploymentDetails.furyContractAddress
                     }
                 },
-                amount: "10000"
+                amount: "1000000"
             }
         }
     };
     let base64Msg = Buffer.from(JSON.stringify(swapMsg)).toString('base64');
+    console.log(`Sell Fury swap base64 msg = ${base64Msg}`);
 
     let sendMsg = {
         send: {
             contract: deploymentDetails.proxyContractAddress,
-            amount: "10000",
+            amount: "1000000",
             msg: base64Msg
         }
     };

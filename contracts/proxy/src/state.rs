@@ -1,13 +1,21 @@
-use cosmwasm_std::{Binary, Coin, Timestamp};
+use cosmwasm_std::{Addr, Binary, Coin, Timestamp};
 use cw_storage_plus::{Bound, Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub pool_pair_address: String,
+    /// contract address of Fury token
     pub custom_token_address: String,
+    /// This address has the authority to pump in liquidity
+    /// The LP tokens for this address will be returned to this address
+    pub authorized_liquidity_provider: Addr,
+    /// The LP tokens for all liquidity providers except
+    /// authorised_liquidity_provider will be stored to this address
+    pub default_lp_tokens_holder: Addr,
+    ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Timestamp,
+    pub pool_pair_address: String,
 }
 // put the length bytes at the first for compatibility with legacy singleton store
 pub const CONFIG: Item<Config> = Item::new("\u{0}\u{6}config");

@@ -8,7 +8,12 @@ use serde::{Deserialize, Serialize};
 pub struct InstantiateMsg {
     /// contract address of Fury token
     pub custom_token_address: String,
+    /// This address has the authority to pump in liquidity
+    /// The LP tokens for this address will be returned to this address
     pub authorized_liquidity_provider: String,
+    /// The LP tokens for all liquidity providers except 
+    /// authorised_liquidity_provider will be stored to this address
+    pub default_lp_tokens_holder: String,
     ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Uint64,
 }
@@ -19,8 +24,6 @@ pub enum ExecuteMsg {
     Configure {
         /// Pool pair contract address of astroport
         pool_pair_address: Option<String>,
-        /// contract address of Fury token
-        custom_token_address: Option<String>,
         ///Time in nano seconds since EPOC when the swapping will be enabled
         swap_opening_date: Uint64,
     },
@@ -35,8 +38,6 @@ pub enum ExecuteMsg {
         slippage_tolerance: Option<Decimal>,
         /// Determines whether an autostake will be performed on the generator
         auto_stake: Option<bool>,
-        /// the receiver of provide liquidity
-        receiver: Option<String>,
     },
     /// Swap an offer asset to the other
     Swap {
