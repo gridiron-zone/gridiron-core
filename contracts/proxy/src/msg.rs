@@ -8,6 +8,21 @@ use serde::{Deserialize, Serialize};
 pub struct InstantiateMsg {
     /// contract address of Fury token
     pub custom_token_address: String,
+
+    /// discount_rate when fury and UST are both provided
+    pub pair_discount_rate: u16,
+    /// bonding period when fury and UST are both provided
+    pub pair_bonding_period_in_days: u16,
+    /// fury reward provider when fury and UST are both provided
+    pub pair_fury_provider: String,
+
+    /// discount_rate when only UST are both provided
+    pub native_discount_rate: u16,
+    /// bonding period when only UST provided
+    pub native_bonding_period_in_days: u16,
+    /// fury reward provider when only UST provided
+    pub native_fury_provider: String,
+
     /// This address has the authority to pump in liquidity
     /// The LP tokens for this address will be returned to this address
     pub authorized_liquidity_provider: String,
@@ -37,7 +52,25 @@ pub enum ExecuteMsg {
     /// ## Description
     /// Receives a message of type [`Cw20ReceiveMsg`]
     Receive(Cw20ReceiveMsg),
-    /// ProvideLiquidity a user provides pool liquidity
+    /// ProvidePairForReward a user provides pair liquidity and gets fury rewards
+    ProvidePairForReward {
+        /// the type of asset available in [`Asset`]
+        assets: [Asset; 2],
+        /// the slippage tolerance for sets the maximum percent of price movement
+        slippage_tolerance: Option<Decimal>,
+        /// Determines whether an autostake will be performed on the generator
+        auto_stake: Option<bool>,
+    },
+    /// ProvideNativeForReward a user provides native liquidity and gets fury rewards
+    ProvideNativeForReward {
+        /// the type of asset available in [`Asset`]
+        asset: Asset,
+        /// the slippage tolerance for sets the maximum percent of price movement
+        slippage_tolerance: Option<Decimal>,
+        /// Determines whether an autostake will be performed on the generator
+        auto_stake: Option<bool>,
+    },
+    /// ProvideLiquidity a user provides pool liquidity and gets lp_tokens
     ProvideLiquidity {
         /// the type of asset available in [`Asset`]
         assets: [Asset; 2],
