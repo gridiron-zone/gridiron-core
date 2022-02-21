@@ -8,37 +8,29 @@ pub struct Config {
     /// contract address of Fury token
     pub custom_token_address: Addr,
     
-    /// This address has the authority to pump in liquidity
-    /// The LP tokens for this address will be returned to this address
-    pub authorized_liquidity_provider: Addr,
-    
-    /// Fury tokens for balanced investment will be fetched from this wallet
-    pub balanced_investment_reward_wallet: Addr,
-    /// The LPTokens for balanced investment are delivered to this wallet
-    pub balanced_investment_receive_wallet: Addr,
-    
-    /// Fury tokens for native(UST only) investment will be fetched from this wallet
-    pub native_investment_reward_wallet: Addr,
-    /// The native(UST only) investment will be stored into this wallet
-    pub native_investment_receive_wallet: Addr,    
-    
     /// discount_rate when fury and UST are both provided
     pub pair_discount_rate: u16,
     /// bonding period when fury and UST are both provided
     pub pair_bonding_period_in_days: u16,
-    /// This address has the fury reward funds when fury and UST are both provided
-    pub pair_fury_provider: Addr,
+    /// Fury tokens for balanced investment will be fetched from this wallet
+    pub pair_fury_reward_wallet: Addr,
+    /// The LP tokens for all liquidity providers except
+    /// authorised_liquidity_provider will be stored to this address
+    /// The LPTokens for balanced investment are delivered to this wallet
+    pub pair_lp_tokens_holder: Addr,
 
-    /// discount_rate when only UST provided
+    /// discount_rate when only UST are both provided
     pub native_discount_rate: u16,
     /// bonding period when only UST provided
     pub native_bonding_period_in_days: u16,
-    /// This address has the fury reward funds when only UST provided
-    pub native_fury_provider: Addr,
+    /// Fury tokens for native(UST only) investment will be fetched from this wallet
+    pub native_investment_reward_wallet: Addr,
+    /// The native(UST only) investment will be stored into this wallet
+    pub native_investment_receive_wallet: Addr,    
 
-    /// The LP tokens for all liquidity providers except
-    /// authorised_liquidity_provider will be stored to this address
-    pub default_lp_tokens_holder: Addr,
+    /// This address has the authority to pump in liquidity
+    /// The LP tokens for this address will be returned to this address
+    pub authorized_liquidity_provider: Addr,
 
     ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Timestamp,

@@ -39,26 +39,20 @@ pub fn instantiate(
         custom_token_address: addr_validate_to_lower(deps.api, msg.custom_token_address.as_str())?,
         pair_discount_rate: msg.pair_discount_rate,
         pair_bonding_period_in_days: msg.pair_bonding_period_in_days,
-        pair_fury_provider: addr_validate_to_lower(deps.api, msg.pair_fury_provider.as_str())?,
+        pair_fury_reward_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.pair_fury_reward_wallet.as_str(),
+        )?,
         native_discount_rate: msg.native_discount_rate,
         native_bonding_period_in_days: msg.native_bonding_period_in_days,
-        native_fury_provider: addr_validate_to_lower(deps.api, msg.native_fury_provider.as_str())?,
+        native_investment_reward_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.native_investment_reward_wallet.as_str(),
+        )?,
 
         authorized_liquidity_provider: addr_validate_to_lower(
             deps.api,
             msg.authorized_liquidity_provider.as_str(),
-        )?,
-        balanced_investment_reward_wallet: addr_validate_to_lower(
-            deps.api,
-            msg.balanced_investment_reward_wallet.as_str(),
-        )?,
-        balanced_investment_receive_wallet: addr_validate_to_lower(
-            deps.api,
-            msg.balanced_investment_receive_wallet.as_str(),
-        )?,
-        native_investment_reward_wallet: addr_validate_to_lower(
-            deps.api,
-            msg.native_investment_reward_wallet.as_str(),
         )?,
         native_investment_receive_wallet: addr_validate_to_lower(
             deps.api,
@@ -66,8 +60,10 @@ pub fn instantiate(
         )?,
         swap_opening_date: Timestamp::from_nanos(msg.swap_opening_date.u64()),
         pool_pair_address: String::default(),
-        //ToDo: Remove this
-        default_lp_tokens_holder: Addr::unchecked("for now"),
+        pair_lp_tokens_holder: addr_validate_to_lower(
+            deps.api,
+            msg.pair_lp_tokens_holder.as_str(),
+        )?,
     };
     if let Some(pool_pair_addr) = msg.pool_pair_address {
         cfg.pool_pair_address = pool_pair_addr;
@@ -135,7 +131,7 @@ pub fn execute(
         } => {
             let config = CONFIG.load(deps.storage)?;
             let receiver: Option<String>;
-            receiver = Some(config.default_lp_tokens_holder.to_string());
+            receiver = Some(config.pair_lp_tokens_holder.to_string());
             provide_liquidity(
                 deps,
                 env,
@@ -169,7 +165,7 @@ pub fn execute(
             ];
 
             let receiver: Option<String>;
-            receiver = Some(config.default_lp_tokens_holder.to_string());
+            receiver = Some(config.pair_lp_tokens_holder.to_string());
             provide_native_liquidity(
                 deps,
                 env,
@@ -518,7 +514,7 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     let config = CONFIG.load(deps.storage)?;
     let pool_rsp: PoolResponse = deps
         .querier
-        .query_wasm_smart(config.pool_pair_address, &to_binary(&Pool {})?)?;
+        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
     let mut fury_equiv_for_ust;
     if pool_rsp.assets[0].info.is_native_token() {
         fury_equiv_for_ust = ust_amount_provided
@@ -543,12 +539,12 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
         }
         fury_pre_discount = Uint128::from(2u128) * fury_equiv_for_ust;
         discounted_rate -= config.pair_discount_rate;
-        funds_owner = config.pair_fury_provider.to_string();
+        funds_owner = config.pair_fury_reward_wallet.to_string();
         bonding_period_in_days = config.pair_bonding_period_in_days;
     } else {
         fury_pre_discount = fury_equiv_for_ust;
         discounted_rate -= config.native_discount_rate;
-        funds_owner = config.native_fury_provider.to_string();
+        funds_owner = config.native_investment_reward_wallet.to_string();
         bonding_period_in_days = config.native_bonding_period_in_days;
     }
     let total_fury_amount = fury_pre_discount

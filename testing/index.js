@@ -77,21 +77,23 @@ const proceedToSetup = async (deploymentDetails) => {
         instantiateFuryTokenContract(deploymentDetails).then(() => {
             transferFuryToTreasury(deploymentDetails).then(() => {
                 transferFuryToMarketing(deploymentDetails).then(() => {
-                    uploadPairContract(deploymentDetails).then(() => {
-                        uploadStakingContract(deploymentDetails).then(() => {
-                            instantiateStaking(deploymentDetails).then(() => {
-                                uploadWhiteListContract(deploymentDetails).then(() => {
-                                    uploadFactoryContract(deploymentDetails).then(() => {
-                                        instantiateFactory(deploymentDetails).then(() => {
-                                            uploadProxyContract(deploymentDetails).then(() => {
-                                                instantiateProxyContract(deploymentDetails).then(() => {
-                                                    queryProxyConfiguration(deploymentDetails).then(() => {
-                                                        createPoolPairs(deploymentDetails).then(() => {
-                                                            savePairAddressToProxy(deploymentDetails).then(() => {
-                                                                queryProxyConfiguration(deploymentDetails).then(() => {
-                                                                    console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                                                    rl.close();
-                                                                    performOperations(deploymentDetails);
+                    transferFuryToLiquidity(deploymentDetails).then(() => {
+                        uploadPairContract(deploymentDetails).then(() => {
+                            uploadStakingContract(deploymentDetails).then(() => {
+                                instantiateStaking(deploymentDetails).then(() => {
+                                    uploadWhiteListContract(deploymentDetails).then(() => {
+                                        uploadFactoryContract(deploymentDetails).then(() => {
+                                            instantiateFactory(deploymentDetails).then(() => {
+                                                uploadProxyContract(deploymentDetails).then(() => {
+                                                    instantiateProxyContract(deploymentDetails).then(() => {
+                                                        queryProxyConfiguration(deploymentDetails).then(() => {
+                                                            createPoolPairs(deploymentDetails).then(() => {
+                                                                savePairAddressToProxy(deploymentDetails).then(() => {
+                                                                    queryProxyConfiguration(deploymentDetails).then(() => {
+                                                                        console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+                                                                        rl.close();
+                                                                        performOperations(deploymentDetails);
+                                                                    });
                                                                 });
                                                             });
                                                         });
@@ -184,6 +186,18 @@ const transferFuryToMarketing = async (deploymentDetails) => {
     console.log(`transferFuryToMarketingMsg = ${JSON.stringify(transferFuryToMarketingMsg)}`);
     let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, transferFuryToMarketingMsg);
     console.log(`transferFuryToMarketingMsg Response - ${response['txhash']}`);
+}
+
+const transferFuryToLiquidity = async (deploymentDetails) => {
+    let transferFuryToLiquidityMsg = {
+        transfer: {
+            recipient: liquidity_wallet.key.accAddress,
+            amount: "50000000"
+        }
+    };
+    console.log(`transferFuryToLiquidityMsg = ${JSON.stringify(transferFuryToLiquidityMsg)}`);
+    let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, transferFuryToLiquidityMsg);
+    console.log(`transferFuryToLiquidityMsg Response - ${response['txhash']}`);
 }
 
 const uploadPairContract = async (deploymentDetails) => {
@@ -282,13 +296,37 @@ const instantiateProxyContract = async (deploymentDetails) => {
     if (!deploymentDetails.proxyContractAddress) {
         console.log("Instantiating proxy contract");
         let proxyInitMessage = {
-            /// Pool pair contract address of astroport
-            pool_pair_address: deploymentDetails.poolPairContractAddress,
             /// contract address of Fury token
             custom_token_address: deploymentDetails.furyContractAddress,
+
+            /// discount_rate when fury and UST are both provided
+            pair_discount_rate: 500,
+            /// bonding period when fury and UST are both provided
+            pair_bonding_period_in_days: 7,
+            /// Fury tokens for balanced investment will be fetched from this wallet
+            pair_fury_reward_wallet: treasury_wallet.key.accAddress,
+            /// The LP tokens for all liquidity providers except
+            /// authorised_liquidity_provider will be stored to this address
+            /// The LPTokens for balanced investment are delivered to this wallet
+            pair_lp_tokens_holder: treasury_wallet.key.accAddress,
+
+            /// discount_rate when only UST are both provided
+            native_discount_rate: 700,
+            /// bonding period when only UST provided
+            native_bonding_period_in_days: 5,
+            /// Fury tokens for native(UST only) investment will be fetched from this wallet
+            native_investment_reward_wallet: liquidity_wallet.key.accAddress,
+            /// The native(UST only) investment will be stored into this wallet
+            native_investment_receive_wallet: liquidity_wallet.key.accAddress,
+
+            /// This address has the authority to pump in liquidity
+            /// The LP tokens for this address will be returned to this address
             authorized_liquidity_provider: deploymentDetails.authLiquidityProvider,
-            default_lp_tokens_holder: deploymentDetails.defaultLPTokenHolder,
+            ///Time in nano seconds since EPOC when the swapping will be enabled
             swap_opening_date: "1644734115627110528",
+
+            /// Pool pair contract address of astroport
+            pool_pair_address: deploymentDetails.poolPairContractAddress,
         }
         console.log(JSON.stringify(proxyInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
@@ -369,11 +407,13 @@ const performOperations = async (deploymentDetails) => {
                 checkLPTokenBalances(deploymentDetails).then(() => {
                     queryPool(deploymentDetails).then(() => {
                         performSimulation(deploymentDetails).then(() => {
-                            performSwap(deploymentDetails).then(() => {
-                                checkLPTokenBalances(deploymentDetails).then(() => {
-                                    provideLiquidityGeneral(deploymentDetails).then(() => {
-                                        checkLPTokenBalances(deploymentDetails).then(() => {
-                                            console.log("Finished operations");
+                            buyFuryTokens(deploymentDetails).then(() => {
+                                sellFuryTokens(deploymentDetails).then(() => {
+                                    checkLPTokenBalances(deploymentDetails).then(() => {
+                                        providePairForReward(deploymentDetails).then(() => {
+                                            //         checkLPTokenBalances(deploymentDetails).then(() => {
+                                            //             console.log("Finished operations");
+                                            //         });
                                         });
                                     });
                                 });
@@ -399,22 +439,13 @@ const checkLPTokenBalances = async (deploymentDetails) => {
         all_accounts: {}
     }).then((allAccounts) => {
         console.log(JSON.stringify(allAccounts.accounts));
-        queryContract(deploymentDetails.poolLpTokenAddress, {
-            balance: { address: allAccounts.accounts[0] }
-        }).then((balance0) => {
-            console.log(`Balance of ${allAccounts.accounts[0]} : ${JSON.stringify(balance0)}`);
+        allAccounts.accounts.forEach((account) => {
             queryContract(deploymentDetails.poolLpTokenAddress, {
-                balance: { address: allAccounts.accounts[1] }
-            }).then((balance1) => {
-                console.log(`Balance of ${allAccounts.accounts[1]} : ${JSON.stringify(balance1)}`);
+                balance: { address: account }
+            }).then((balance) => {
+                console.log(`Balance of ${account} : ${JSON.stringify(balance)}`);
             });
         });
-    // allAccounts.accounts.forEach((account) => {
-        //     let balance = await queryContract(deploymentDetails.poolLpTokenAddress, {
-        //         balance: { address: account }
-        //     });
-        //     console.log(`Balance of ${account} : ${JSON.stringify(balance)}`);
-        // });
     });
 }
 
@@ -494,6 +525,57 @@ const provideLiquidityGeneral = async (deploymentDetails) => {
     let tax = await terraClient.utils.calculateTax(new Coin("uusd", "5000000"));
     console.log(`tax = ${tax}`);
     let funds = Number(5000000);
+    funds = funds + Number(tax.amount);
+    console.log(`funds = ${funds}`);
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
+    console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
+}
+
+const providePairForReward = async (deploymentDetails) => {
+    //First increase allowance for proxy to spend from liquidity wallet
+    let increaseAllowanceMsgLW = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: "10000"
+        }
+    };
+    let incrAllowRespLW = await executeContract(liquidity_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
+    console.log(`Increase allowance response hash = ${incrAllowRespLW['txhash']}`);
+
+    //First increase allowance for proxy to spend from marketing_wallet wallet
+    let increaseAllowanceMsg = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: "5000"
+        }
+    };
+    let incrAllowResp = await executeContract(marketing_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
+    let executeMsg = {
+        provide_pair_for_reward: {
+            assets: [
+                {
+                    info: {
+                        native_token: {
+                            denom: "uusd"
+                        }
+                    },
+                    amount: "500"
+                },
+                {
+                    info: {
+                        token: {
+                            contract_addr: deploymentDetails.furyContractAddress
+                        }
+                    },
+                    amount: "5000"
+                }
+            ]
+        }
+    };
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "500"));
+    console.log(`tax = ${tax}`);
+    let funds = Number(500);
     funds = funds + Number(tax.amount);
     console.log(`funds = ${funds}`);
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });

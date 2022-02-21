@@ -13,30 +13,28 @@ pub struct InstantiateMsg {
     pub pair_discount_rate: u16,
     /// bonding period when fury and UST are both provided
     pub pair_bonding_period_in_days: u16,
-    /// fury reward provider when fury and UST are both provided
-    pub pair_fury_provider: String,
+    /// Fury tokens for balanced investment will be fetched from this wallet
+    pub pair_fury_reward_wallet: String,
+    /// The LP tokens for all liquidity providers except
+    /// authorised_liquidity_provider will be stored to this address
+    /// The LPTokens for balanced investment are delivered to this wallet
+    pub pair_lp_tokens_holder: String,
 
     /// discount_rate when only UST are both provided
     pub native_discount_rate: u16,
     /// bonding period when only UST provided
     pub native_bonding_period_in_days: u16,
-    /// fury reward provider when only UST provided
-    pub native_fury_provider: String,
+    /// Fury tokens for native(UST only) investment will be fetched from this wallet
+    pub native_investment_reward_wallet: String,
+    /// The native(UST only) investment will be stored into this wallet
+    pub native_investment_receive_wallet: String,    
 
     /// This address has the authority to pump in liquidity
     /// The LP tokens for this address will be returned to this address
     pub authorized_liquidity_provider: String,
     ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Uint64,
-    /// Fury tokens for balanced investment will be fetched from this wallet
-    pub balanced_investment_reward_wallet: String,
-    /// The LPTokens for balanced investment are delivered to this wallet
-    pub balanced_investment_receive_wallet: String,
-    /// Fury tokens for native(UST only) investment will be fetched from this wallet
-    pub native_investment_reward_wallet: String,
-    /// The native(UST only) investment will be stored into this wallet
-    pub native_investment_receive_wallet: String,    
-    ///Time in nano seconds since EPOC when the swapping will be enabled
+
     pub pool_pair_address: Option<String>
 }
 
