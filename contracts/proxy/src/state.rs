@@ -6,15 +6,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     /// contract address of Fury token
-    pub custom_token_address: String,
+    pub custom_token_address: Addr,
+    
     /// This address has the authority to pump in liquidity
     /// The LP tokens for this address will be returned to this address
     pub authorized_liquidity_provider: Addr,
-    /// The LP tokens for all liquidity providers except
-    /// authorised_liquidity_provider will be stored to this address
-    pub default_lp_tokens_holder: Addr,
+    
+    /// Fury tokens for balanced investment will be fetched from this wallet
+    pub balanced_investment_reward_wallet: Addr,
+    /// The LPTokens for balanced investment are delivered to this wallet
+    pub balanced_investment_receive_wallet: Addr,
+    
+    /// Fury tokens for native(UST only) investment will be fetched from this wallet
+    pub native_investment_reward_wallet: Addr,
+    /// The native(UST only) investment will be stored into this wallet
+    pub native_investment_receive_wallet: Addr,    
+    
     ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Timestamp,
+    
+    /// Pool pair address from liquidity provider (astroport)
     pub pool_pair_address: String,
 }
 // put the length bytes at the first for compatibility with legacy singleton store

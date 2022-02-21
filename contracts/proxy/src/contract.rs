@@ -32,19 +32,35 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let cfg = Config {
-        custom_token_address: msg.custom_token_address,
+
+    let mut cfg = Config {
+        custom_token_address: addr_validate_to_lower(deps.api, msg.custom_token_address.as_str())?,
         authorized_liquidity_provider: addr_validate_to_lower(
             deps.api,
             msg.authorized_liquidity_provider.as_str(),
         )?,
-        default_lp_tokens_holder: addr_validate_to_lower(
+        balanced_investment_reward_wallet: addr_validate_to_lower(
             deps.api,
-            msg.default_lp_tokens_holder.as_str(),
+            msg.balanced_investment_reward_wallet.as_str(),
+        )?,
+        balanced_investment_receive_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.balanced_investment_receive_wallet.as_str(),
+        )?,
+        native_investment_reward_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.native_investment_reward_wallet.as_str(),
+        )?,
+        native_investment_receive_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.native_investment_receive_wallet.as_str(),
         )?,
         swap_opening_date: Timestamp::from_nanos(msg.swap_opening_date.u64()),
         pool_pair_address: String::default(),
     };
+    if let Some(pool_pair_addr) = msg.pool_pair_address {
+        cfg.pool_pair_address = pool_pair_addr;
+    }
     CONFIG.save(deps.storage, &cfg)?;
     // configure_proxy(deps, env, info, None, msg.swap_opening_date)?;
     Ok(Response::default())
@@ -85,12 +101,11 @@ pub fn execute(
             auto_stake,
         } => {
             let config = CONFIG.load(deps.storage)?;
-            let receiver: Option<String>;
-            if info.sender == config.authorized_liquidity_provider {
-                receiver = Some(config.authorized_liquidity_provider.to_string());
-            } else {
-                receiver = Some(config.default_lp_tokens_holder.to_string());
+            if info.sender != config.authorized_liquidity_provider {
+                return Err(ContractError::Unauthorized {});
             }
+
+            let receiver = Some(config.authorized_liquidity_provider.to_string());
             provide_liquidity(
                 deps,
                 env,
@@ -128,9 +143,11 @@ pub fn execute(
                 to_addr,
             )
         }
-        ExecuteMsg::SetSwapOpeningDate { swap_opening_date } => {
-            set_swap_opening_date(deps, env, swap_opening_date)
-        }
+        ExecuteMsg::ProvideFuryNativeInvestment {
+            assets,
+            slippage_tolerance,
+        } => provide_fury_native_investment(assets, slippage_tolerance),
+        ExecuteMsg::ProvideUSTOnlyInvestment {} => provide_ust_only_investment(),
     }
 }
 
@@ -353,7 +370,7 @@ pub fn forward_swap_to_astro(
         msg: received_message.msg,
     };
     let exec = WasmMsg::Execute {
-        contract_addr: config.custom_token_address,
+        contract_addr: config.custom_token_address.into_string(),
         msg: to_binary(&send_msg).unwrap(),
         funds: info.funds,
     };
@@ -528,6 +545,21 @@ pub fn set_swap_opening_date(
     config.swap_opening_date = swap_opening_date;
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
+}
+
+fn provide_fury_native_investment(
+    assets: [Asset; 2],
+    slippage_tolerance: Option<Decimal>,
+) -> Result<Response, ContractError> {
+    Err(ContractError::Std(StdError::NotFound {
+        kind: String::from("Not yet implemented!"),
+    }))
+}
+
+fn provide_ust_only_investment() -> Result<Response, ContractError> {
+    Err(ContractError::Std(StdError::NotFound {
+        kind: String::from("Not yet implemented!"),
+    }))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

@@ -85,10 +85,10 @@ const proceedToSetup = async (deploymentDetails) => {
                                         instantiateFactory(deploymentDetails).then(() => {
                                             uploadProxyContract(deploymentDetails).then(() => {
                                                 instantiateProxyContract(deploymentDetails).then(() => {
-                                                    queryPorxyConfiguration(deploymentDetails).then(() => {
+                                                    queryProxyConfiguration(deploymentDetails).then(() => {
                                                         createPoolPairs(deploymentDetails).then(() => {
                                                             savePairAddressToProxy(deploymentDetails).then(() => {
-                                                                queryPorxyConfiguration(deploymentDetails).then(() => {
+                                                                queryProxyConfiguration(deploymentDetails).then(() => {
                                                                     console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
                                                                     rl.close();
                                                                     performOperations(deploymentDetails);
@@ -298,7 +298,7 @@ const instantiateProxyContract = async (deploymentDetails) => {
     }
 }
 
-const queryPorxyConfiguration = async (deploymentDetails) => {
+const queryProxyConfiguration = async (deploymentDetails) => {
     //Fetch configuration
     let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
         configuration: {}
