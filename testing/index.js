@@ -388,6 +388,7 @@ const savePairAddressToProxy = async (deploymentDetails) => {
             configuration: {}
         });
         configResponse.pool_pair_address = deploymentDetails.poolPairContractAddress;
+        configResponse.liquidity_token = deploymentDetails.poolLpTokenAddress;
         console.log(`Configuration = ${JSON.stringify(configResponse)}`);
         let executeMsg = {
             configure: configResponse
@@ -403,17 +404,21 @@ const savePairAddressToProxy = async (deploymentDetails) => {
 const performOperations = async (deploymentDetails) => {
     checkLPTokenDetails(deploymentDetails).then(() => {
         checkLPTokenBalances(deploymentDetails).then(() => {
-            provideLiquidityAuthorised(deploymentDetails).then(() => {
-                checkLPTokenBalances(deploymentDetails).then(() => {
-                    queryPool(deploymentDetails).then(() => {
-                        performSimulation(deploymentDetails).then(() => {
-                            buyFuryTokens(deploymentDetails).then(() => {
-                                sellFuryTokens(deploymentDetails).then(() => {
-                                    checkLPTokenBalances(deploymentDetails).then(() => {
-                                        providePairForReward(deploymentDetails).then(() => {
-                                            //         checkLPTokenBalances(deploymentDetails).then(() => {
-                                            //             console.log("Finished operations");
-                                            //         });
+            transferFuryToTreasury(deploymentDetails).then(() => {
+                provideLiquidityAuthorised(deploymentDetails).then(() => {
+                    checkLPTokenBalances(deploymentDetails).then(() => {
+                        queryPool(deploymentDetails).then(() => {
+                            performSimulation(deploymentDetails).then(() => {
+                                buyFuryTokens(deploymentDetails).then(() => {
+                                    sellFuryTokens(deploymentDetails).then(() => {
+                                        withdrawLiquidityAutorized(deploymentDetails).then(() => {
+                                            checkLPTokenBalances(deploymentDetails).then(() => {
+                                                providePairForReward(deploymentDetails).then(() => {
+                                                    //         checkLPTokenBalances(deploymentDetails).then(() => {
+                                                    //             console.log("Finished operations");
+                                                    //         });
+                                                });
+                                            });
                                         });
                                     });
                                 });
@@ -425,6 +430,7 @@ const performOperations = async (deploymentDetails) => {
         });
     });
 }
+
 const checkLPTokenDetails = async (deploymentDetails) => {
     let lpTokenDetails = await queryContract(deploymentDetails.poolLpTokenAddress, {
         token_info: {}
@@ -488,6 +494,26 @@ const provideLiquidityAuthorised = async (deploymentDetails) => {
     console.log(`funds = ${funds}`);
     let response = await executeContract(treasury_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from treasury) Response - ${response['txhash']}`);
+}
+
+const withdrawLiquidityAutorized = async (deploymentDetails) => {
+    console.log(`withdraw liquidity using lptokens = 1000000000`);
+    let withdrawMsg = {
+        withdraw_liquidity : {
+            sender: deploymentDetails.authLiquidityProvider,
+            amount: "1000000000"
+        }
+    };
+    let base64Msg = Buffer.from(JSON.stringify(withdrawMsg)).toString('base64');
+    let executeMsg = {
+        send: {
+            contract: deploymentDetails.proxyContractAddress,
+            amount: "1000000000",
+            msg: base64Msg,
+        }
+    };
+    let qResp = await executeContract(treasury_wallet, deploymentDetails.poolLpTokenAddress, executeMsg);
+    console.log(`withdraw Liquidity (from treasury) Response - ${qResp['txhash']}`);
 }
 
 const provideLiquidityGeneral = async (deploymentDetails) => {

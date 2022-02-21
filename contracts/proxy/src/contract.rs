@@ -4,9 +4,9 @@ use crate::state::{
     BondedRewardsDetails, Config, ContractVersion, SubMessageDetails, SubMessageNextAction,
     SubMessageType, BONDED_REWARDS_DETAILS, CONFIG, CONTRACT, SUB_MESSAGE_DETAILS, SUB_REQ_ID,
 };
-use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo};
+use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo, PairInfo};
 use astroport::pair::ExecuteMsg as PairExecuteMsg;
-use astroport::pair::QueryMsg::{CumulativePrices, Pool, ReverseSimulation, Simulation};
+use astroport::pair::QueryMsg::{CumulativePrices, Pair, Pool, ReverseSimulation, Simulation};
 use astroport::pair::{
     CumulativePricesResponse, Cw20HookMsg, PoolResponse, ReverseSimulationResponse,
     SimulationResponse,
@@ -64,6 +64,7 @@ pub fn instantiate(
             deps.api,
             msg.pair_lp_tokens_holder.as_str(),
         )?,
+        liquidity_token: Addr::unchecked(""),
     };
     if let Some(pool_pair_addr) = msg.pool_pair_address {
         cfg.pool_pair_address = pool_pair_addr;
@@ -97,8 +98,9 @@ pub fn execute(
     match msg {
         ExecuteMsg::Configure {
             pool_pair_address,
+            liquidity_token,
             swap_opening_date,
-        } => configure_proxy(deps, env, info, pool_pair_address, swap_opening_date),
+        } => configure_proxy(deps, env, info, pool_pair_address, liquidity_token, swap_opening_date),
         ExecuteMsg::Receive(received_message) => {
             process_received_message(deps, env, info, received_message)
         }
@@ -216,6 +218,7 @@ fn configure_proxy(
     env: Env,
     info: MessageInfo,
     pool_pair_address: Option<String>,
+    liquidity_token: Option<String>,
     swap_opening_date: Uint64,
 ) -> Result<Response, ContractError> {
     // let sender_addr = info.sender.clone();
@@ -231,6 +234,9 @@ fn configure_proxy(
     let mut config = CONFIG.load(deps.storage)?;
     if let Some(pool_pair_addr) = pool_pair_address {
         config.pool_pair_address = pool_pair_addr;
+    }
+    if let Some(liquidity_token) = liquidity_token {
+        config.liquidity_token = addr_validate_to_lower(deps.api, &liquidity_token)?;
     }
     config.swap_opening_date = Timestamp::from_nanos(swap_opening_date.u64());
     CONFIG.save(deps.storage, &config)?;
@@ -264,8 +270,7 @@ fn process_received_message(
             deps,
             env,
             info,
-            Addr::unchecked(received_message.sender),
-            received_message.amount,
+            received_message
         ),
         // Ok(ProxyCw20HookMsg::ProvideLiquidity {
         //     assets,
@@ -704,13 +709,37 @@ pub fn withdraw_liquidity(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    sender: Addr,
-    amount: Uint128,
+    received_message: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    Err(ContractError::Std(StdError::generic_err(format!(
-        "Nitin was here in sender = {:?} amount = {:?}",
-        sender, amount
-    ))))
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if info.sender != config.liquidity_token {
+        return Err(ContractError::Unauthorized {});
+    }
+    let wl_msg = Cw20ExecuteMsg::Send {
+        contract: config.pool_pair_address.to_string(),
+        amount: received_message.amount,
+        msg: received_message.msg,
+    };
+    let exec = WasmMsg::Execute {
+        contract_addr: config.liquidity_token.to_string(),
+        msg: to_binary(&wl_msg).unwrap(),
+        funds: info.funds,
+    };
+
+    let mut send: SubMsg = SubMsg::new(exec);
+    let mut resp = Response::new();
+    let data_msg = format!("Withdraw {:?}", wl_msg).into_bytes();
+    Ok(resp
+        .add_submessage(send)
+        .add_attribute("action", "Forwarding withdraw message to lptoken address")
+        .set_data(data_msg)
+        )
+
+    // Err(ContractError::Std(StdError::generic_err(format!(
+    //     "Nitin was here in sender = {:?} amount = {:?}",
+    //     sender, amount
+    // ))))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -907,6 +936,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Configuration {} => to_binary(&query_configuration(deps)?),
+        QueryMsg::Pair {} => to_binary(&query_pair(deps)?),
         QueryMsg::Pool {} => to_binary(&query_pool(deps)?),
         QueryMsg::Simulation { offer_asset } => to_binary(&query_simulation(deps, offer_asset)?),
         QueryMsg::ReverseSimulation { ask_asset } => {
@@ -926,6 +956,12 @@ fn query_pool(deps: Deps) -> StdResult<PoolResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
     deps.querier
         .query_wasm_smart(config.pool_pair_address, &Pool {})
+}
+
+fn query_pair(deps: Deps) -> StdResult<PairInfo> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    deps.querier
+        .query_wasm_smart(config.pool_pair_address, &Pair {})
 }
 
 fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationResponse> {

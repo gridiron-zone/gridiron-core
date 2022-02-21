@@ -44,6 +44,8 @@ pub enum ExecuteMsg {
     Configure {
         /// Pool pair contract address of astroport
         pool_pair_address: Option<String>,
+        /// contract address of Liquidity token
+        liquidity_token: Option<String>,
         ///Time in nano seconds since EPOC when the swapping will be enabled
         swap_opening_date: Uint64,
     },
@@ -98,6 +100,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     Configuration {},
     Pool {},
+    Pair {},
     /// Returns information about the simulation of the swap in a [`SimulationResponse`] object.
     Simulation {
         offer_asset: Asset,

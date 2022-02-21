@@ -37,6 +37,8 @@ pub struct Config {
     
     /// Pool pair address from liquidity provider (astroport)
     pub pool_pair_address: String,
+    /// LP token contract address
+    pub liquidity_token: Addr,
 }
 // put the length bytes at the first for compatibility with legacy singleton store
 pub const CONFIG: Item<Config> = Item::new("\u{0}\u{6}config");
