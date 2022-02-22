@@ -415,7 +415,11 @@ const performOperations = async (deploymentDetails) => {
                                             checkLPTokenBalances(deploymentDetails).then(() => {
                                                 providePairForReward(deploymentDetails).then(() => {
                                                     checkLPTokenBalances(deploymentDetails).then(() => {
-                                                        console.log("Finished operations");
+                                                        provideNativeForRewards(deploymentDetails).then(() => {
+                                                            checkLPTokenBalances(deploymentDetails).then(() => {
+                                                                console.log("Finished operations");
+                                                            });
+                                                        })
                                                     });
                                                 });
                                             });
@@ -606,6 +610,57 @@ const providePairForReward = async (deploymentDetails) => {
     console.log(`funds = ${funds}`);
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
+}
+
+const provideNativeForRewards = async (deploymentDetails) => {
+    // //First increase allowance for proxy to spend from liquidity wallet
+    // let increaseAllowanceMsgLW = {
+    //     increase_allowance: {
+    //         spender: deploymentDetails.proxyContractAddress,
+    //         amount: "200000"
+    //     }
+    // };
+    // let incrAllowRespLW = await executeContract(liquidity_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
+    // console.log(`Increase allowance response hash = ${incrAllowRespLW['txhash']}`);
+
+    // //First increase allowance for proxy to spend from marketing_wallet wallet
+    // let increaseAllowanceMsg = {
+    //     increase_allowance: {
+    //         spender: deploymentDetails.proxyContractAddress,
+    //         amount: "50000"
+    //     }
+    // };
+    // let incrAllowResp = await executeContract(marketing_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    // console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
+    // let executeMsg = {
+    //     provide_pair_for_reward: {
+    //         assets: [
+    //             {
+    //                 info: {
+    //                     native_token: {
+    //                         denom: "uusd"
+    //                     }
+    //                 },
+    //                 amount: "5000"
+    //             },
+    //             {
+    //                 info: {
+    //                     token: {
+    //                         contract_addr: deploymentDetails.furyContractAddress
+    //                     }
+    //                 },
+    //                 amount: "50000"
+    //             }
+    //         ]
+    //     }
+    // };
+    // let tax = await terraClient.utils.calculateTax(new Coin("uusd", "5000"));
+    // console.log(`tax = ${tax}`);
+    // let funds = Number(5000);
+    // funds = funds + Number(tax.amount);
+    // console.log(`funds = ${funds}`);
+    // let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
+    // console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
 const queryPool = async (deploymentDetails) => {
