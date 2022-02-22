@@ -40,6 +40,7 @@ const rl = readline.createInterface({
 });
 const question = promisify(rl.question).bind(rl);
 
+let configResponseReceived;
 
 const main = async () => {
     try {
@@ -341,7 +342,8 @@ const queryProxyConfiguration = async (deploymentDetails) => {
     let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
         configuration: {}
     });
-    console.log(JSON.stringify(configResponse));
+    configResponseReceived = configResponse;
+    console.log(JSON.stringify(configResponseReceived));
 }
 
 const createPoolPairs = async (deploymentDetails) => {
