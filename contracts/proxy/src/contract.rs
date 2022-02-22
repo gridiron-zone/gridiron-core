@@ -13,9 +13,9 @@ use astroport::pair::{
 };
 
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Addr, Binary, Coin, ContractResult, Decimal, Deps,
-    DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult, Storage, SubMsg,
-    Timestamp, Uint128, Uint64, WasmMsg,
+    entry_point, from_binary, to_binary, Addr, BankMsg, Binary, Coin, ContractResult, CosmosMsg,
+    Decimal, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult,
+    Storage, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -212,11 +212,6 @@ pub fn execute(
                 to_addr,
             )
         }
-        ExecuteMsg::ProvideFuryNativeInvestment {
-            assets,
-            slippage_tolerance,
-        } => provide_fury_native_investment(assets, slippage_tolerance),
-        ExecuteMsg::ProvideUSTOnlyInvestment {} => provide_ust_only_investment(),
     }
 }
 
@@ -490,6 +485,42 @@ pub fn provide_native_liquidity(
     )
 }
 
+pub fn transfer_native_assets_to_native_investment_receive_wallet(
+    deps: DepsMut,
+    env: Env,
+    assets: [Asset; 2],
+    slippage_tolerance: Option<Decimal>,
+    auto_stake: Option<bool>,
+    receiver: Option<String>,
+    funds: Vec<Coin>,
+    user_address: String,
+    is_fury_provided: bool,
+) -> Result<Response, ContractError> {
+    let mut funds_to_pass: Vec<Coin> = Vec::new();
+    for fund in funds {
+        let asset = Asset {
+            amount: fund.amount,
+            info: AssetInfo::NativeToken {
+                denom: fund.denom.clone(),
+            },
+        };
+        let c = Coin {
+            denom: fund.denom,
+            amount: fund
+                .amount
+                .checked_sub(asset.compute_tax(&deps.querier)?)
+                .unwrap(),
+        };
+        funds_to_pass.push(c);
+    }
+
+    let resp = Response::new();
+    Ok(resp.add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: receiver.unwrap(),
+        amount: funds_to_pass,
+    })))
+}
+
 pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     deps: DepsMut,
     env: Env,
@@ -619,20 +650,36 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     };
 
     // Save the submessage_payload
-    SUB_MESSAGE_DETAILS.save(
-        deps.storage,
-        sub_req_id.to_string(),
-        &SubMessageDetails {
-            sub_req_id: sub_req_id.to_string(),
-            request_type: SubMessageType::ProvideLiquiditySubMsg,
-            next_action: SubMessageNextAction::IncreaseAllowance,
-            sub_message_payload: to_binary(&pl_msg)?,
-            funds: funds,
-            user_address: user_address,
-            is_fury_provided: is_fury_provided,
-        },
-    )?;
-
+    if is_fury_provided {
+        SUB_MESSAGE_DETAILS.save(
+            deps.storage,
+            sub_req_id.to_string(),
+            &SubMessageDetails {
+                sub_req_id: sub_req_id.to_string(),
+                request_type: SubMessageType::ProvideLiquiditySubMsg,
+                next_action: SubMessageNextAction::IncreaseAllowance,
+                sub_message_payload: to_binary(&pl_msg)?,
+                funds: funds,
+                user_address: user_address,
+                is_fury_provided: is_fury_provided,
+            },
+        )?;
+    } else {
+        // Save the submessage_payload
+        SUB_MESSAGE_DETAILS.save(
+            deps.storage,
+            sub_req_id.to_string(),
+            &SubMessageDetails {
+                sub_req_id: sub_req_id.to_string(),
+                request_type: SubMessageType::ProvideLiquiditySubMsg,
+                next_action: SubMessageNextAction::TransferToNativeInvestmentReceiveWallet,
+                sub_message_payload: to_binary(&pl_msg)?,
+                funds: funds,
+                user_address: user_address,
+                is_fury_provided: is_fury_provided,
+            },
+        )?;
+    }
     Ok(resp.add_attribute(
         "action",
         "Transferring fury from treasury funds owner to proxy",
@@ -822,21 +869,6 @@ pub fn set_swap_opening_date(
     Ok(Response::default())
 }
 
-fn provide_fury_native_investment(
-    assets: [Asset; 2],
-    slippage_tolerance: Option<Decimal>,
-) -> Result<Response, ContractError> {
-    Err(ContractError::Std(StdError::NotFound {
-        kind: String::from("Not yet implemented!"),
-    }))
-}
-
-fn provide_ust_only_investment() -> Result<Response, ContractError> {
-    Err(ContractError::Std(StdError::NotFound {
-        kind: String::from("Not yet implemented!"),
-    }))
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     let result = msg.result;
@@ -846,29 +878,42 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
             let sub_message_details =
                 SUB_MESSAGE_DETAILS.may_load(deps.storage, sub_msg_id.to_string())?;
             match sub_message_details {
-                Some(smd) => match smd.request_type {
-                    SubMessageType::TransferFromSubMsg => {
-                        // Remove the saved submessage from storage
-                        SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
-                    }
-                    SubMessageType::IncreaseAlowanceSubMsg => {
-                        // Remove the saved submessage from storage
-                        SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
-                    }
-                    SubMessageType::ProvideLiquiditySubMsg => {
-                        // Remove the saved submessage from storage
-                        SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
-                        match from_binary(&smd.sub_message_payload).unwrap() {
-                            PairExecuteMsg::ProvideLiquidity {
-                                assets,
-                                slippage_tolerance,
-                                auto_stake,
-                                receiver,
-                            } => {
-                                if smd.next_action
+                Some(smd) => {
+                    match smd.request_type {
+                        SubMessageType::TransferFromSubMsg => {
+                            // Remove the saved submessage from storage
+                            SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
+                        }
+                        SubMessageType::IncreaseAlowanceSubMsg => {
+                            // Remove the saved submessage from storage
+                            SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
+                        }
+                        SubMessageType::ProvideLiquiditySubMsg => {
+                            // Remove the saved submessage from storage
+                            SUB_MESSAGE_DETAILS.remove(deps.storage, msg.id.to_string());
+                            match from_binary(&smd.sub_message_payload).unwrap() {
+                                PairExecuteMsg::ProvideLiquidity {
+                                    assets,
+                                    slippage_tolerance,
+                                    auto_stake,
+                                    receiver,
+                                } => {
+                                    if smd.next_action
                                     == SubMessageNextAction::TransferCustomAssetsFromFundsOwner
                                 {
                                     return transfer_custom_assets_from_funds_owner_to_proxy(
+                                        deps,
+                                        env,
+                                        assets,
+                                        slippage_tolerance,
+                                        auto_stake,
+                                        receiver,
+                                        smd.funds,
+                                        smd.user_address,
+                                        smd.is_fury_provided,
+                                    );
+                                } else if smd.next_action == SubMessageNextAction::TransferToNativeInvestmentReceiveWallet{
+                                    return transfer_native_assets_to_native_investment_receive_wallet(
                                         deps,
                                         env,
                                         assets,
@@ -904,15 +949,16 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                                         smd.funds,
                                     );
                                 }
-                            }
-                            _ => {
-                                return Err(ContractError::Std(StdError::generic_err(format!(
-                                    "Should never reach here!!!",
-                                ))));
+                                }
+                                _ => {
+                                    return Err(ContractError::Std(StdError::generic_err(
+                                        format!("Should never reach here!!!",),
+                                    )));
+                                }
                             }
                         }
                     }
-                },
+                }
                 None => {}
             }
             // For all fall-through messages respond with success

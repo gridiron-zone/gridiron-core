@@ -418,9 +418,7 @@ const performOperations = async (deploymentDetails) => {
                                                 providePairForReward(deploymentDetails).then(() => {
                                                     checkLPTokenBalances(deploymentDetails).then(() => {
                                                         provideNativeForRewards(deploymentDetails).then(() => {
-                                                            checkLPTokenBalances(deploymentDetails).then(() => {
-                                                                console.log("Finished operations");
-                                                            });
+                                                            console.log("Finished operations");
                                                         })
                                                     });
                                                 });
@@ -564,11 +562,18 @@ const provideLiquidityGeneral = async (deploymentDetails) => {
 }
 
 const providePairForReward = async (deploymentDetails) => {
+    let hundredPercent = Number(10000);
+    let rate = hundredPercent - configResponseReceived.pair_discount_rate;
+    let baseUstAmount = Number(5000);
+    let ustFuryEquivAmount = baseUstAmount * Number(10); // 10x of ust is fury and then total = fury + ust
+    let totalFuryAmount = ustFuryEquivAmount * Number(2);
+    let incrAllowLW = parseInt(totalFuryAmount * hundredPercent / rate);
+    console.log(`Increase allowance for liquidity by = ${incrAllowLW}`);
     //First increase allowance for proxy to spend from liquidity wallet
     let increaseAllowanceMsgLW = {
         increase_allowance: {
             spender: deploymentDetails.proxyContractAddress,
-            amount: "200000"
+            amount: incrAllowLW.toString()
         }
     };
     let incrAllowRespLW = await executeContract(liquidity_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
@@ -615,54 +620,63 @@ const providePairForReward = async (deploymentDetails) => {
 }
 
 const provideNativeForRewards = async (deploymentDetails) => {
-    // //First increase allowance for proxy to spend from liquidity wallet
-    // let increaseAllowanceMsgLW = {
-    //     increase_allowance: {
-    //         spender: deploymentDetails.proxyContractAddress,
-    //         amount: "200000"
-    //     }
-    // };
-    // let incrAllowRespLW = await executeContract(liquidity_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
-    // console.log(`Increase allowance response hash = ${incrAllowRespLW['txhash']}`);
+    //Get the pool details
+    let ufuryCount;
+    let uustCount;
+    let poolDetails = await queryContract(deploymentDetails.proxyContractAddress, {
+        pool: {}
+    });
+    poolDetails.assets.forEach(asset => {
+        console.log(`asset = ${JSON.stringify(asset)}`);
+        if (asset.info.native_token) {
+            uustCount = asset.amount;
+            console.log("Native Tokens = " + uustCount + asset.info.native_token.denom);
+        }
+        if (asset.info.token) {
+            ufuryCount = asset.amount;
+            console.log("Fury Tokens = " + ufuryCount + "uFury");
+        }
+    })
 
-    // //First increase allowance for proxy to spend from marketing_wallet wallet
-    // let increaseAllowanceMsg = {
-    //     increase_allowance: {
-    //         spender: deploymentDetails.proxyContractAddress,
-    //         amount: "50000"
-    //     }
-    // };
-    // let incrAllowResp = await executeContract(marketing_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
-    // console.log(`Increase allowance response hash = ${incrAllowResp['txhash']}`);
-    // let executeMsg = {
-    //     provide_pair_for_reward: {
-    //         assets: [
-    //             {
-    //                 info: {
-    //                     native_token: {
-    //                         denom: "uusd"
-    //                     }
-    //                 },
-    //                 amount: "5000"
-    //             },
-    //             {
-    //                 info: {
-    //                     token: {
-    //                         contract_addr: deploymentDetails.furyContractAddress
-    //                     }
-    //                 },
-    //                 amount: "50000"
-    //             }
-    //         ]
-    //     }
-    // };
-    // let tax = await terraClient.utils.calculateTax(new Coin("uusd", "5000"));
-    // console.log(`tax = ${tax}`);
-    // let funds = Number(5000);
-    // funds = funds + Number(tax.amount);
-    // console.log(`funds = ${funds}`);
-    // let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
-    // console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
+    let hundredPercent = Number(10000);
+    let rate = hundredPercent - configResponseReceived.native_discount_rate;
+    let baseUstAmount = Number(5000);
+    let furyForBaseUst = baseUstAmount * Number(ufuryCount) / Number(uustCount);
+    console.log(`for ${baseUstAmount} the equivalent furys are ${furyForBaseUst}`);
+    // let ustFuryEquivAmount = baseUstAmount * Number(10); // 10x of ust is fury and then total = fury + ust
+    // let totalFuryAmount = ustFuryEquivAmount;
+    let incrAllowLW = parseInt(furyForBaseUst * hundredPercent / rate);
+    console.log(`Increase allowance for treasury by = ${incrAllowLW}`);
+    //First increase allowance for proxy to spend from treasury wallet
+    let increaseAllowanceMsgLW = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: incrAllowLW.toString()
+        }
+    };
+    let incrAllowRespLW = await executeContract(treasury_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
+    console.log(`Increase allowance response hash = ${incrAllowRespLW['txhash']}`);
+
+    let executeMsg = {
+        provide_native_for_reward: {
+            asset:
+            {
+                info: {
+                    native_token: {
+                        denom: "uusd"
+                    }
+                },
+                amount: baseUstAmount.toString()
+            }
+
+        }
+    };
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", baseUstAmount.toString()));
+    console.log(`tax = ${tax}`);
+    let funds = baseUstAmount + Number(tax.amount);
+    console.log(`funds = ${funds}`);
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
+    console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
 const queryPool = async (deploymentDetails) => {

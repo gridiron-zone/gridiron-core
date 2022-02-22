@@ -75,6 +75,7 @@ pub enum SubMessageNextAction {
     IncreaseAllowance,
     ProvideLiquidity,
     TransferCustomAssetsFromFundsOwner,
+    TransferToNativeInvestmentReceiveWallet,
 }
 
 /// This is used for saving pending request details

@@ -85,14 +85,7 @@ pub enum ExecuteMsg {
         belief_price: Option<Decimal>,
         max_spread: Option<Decimal>,
         to: Option<String>,
-    },
-    ProvideFuryNativeInvestment{
-        /// the type of asset available in [`Asset`]
-        assets: [Asset; 2],
-        /// the slippage tolerance for sets the maximum percent of price movement
-        slippage_tolerance: Option<Decimal>,
-    },
-    ProvideUSTOnlyInvestment{},
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
