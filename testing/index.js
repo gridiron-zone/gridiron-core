@@ -304,20 +304,20 @@ const instantiateProxyContract = async (deploymentDetails) => {
             /// bonding period when fury and UST are both provided
             pair_bonding_period_in_days: 7,
             /// Fury tokens for balanced investment will be fetched from this wallet
-            pair_fury_reward_wallet: treasury_wallet.key.accAddress,
+            pair_fury_reward_wallet: liquidity_wallet.key.accAddress,
             /// The LP tokens for all liquidity providers except
             /// authorised_liquidity_provider will be stored to this address
             /// The LPTokens for balanced investment are delivered to this wallet
-            pair_lp_tokens_holder: treasury_wallet.key.accAddress,
+            pair_lp_tokens_holder: liquidity_wallet.key.accAddress,
 
             /// discount_rate when only UST are both provided
             native_discount_rate: 700,
             /// bonding period when only UST provided
             native_bonding_period_in_days: 5,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
-            native_investment_reward_wallet: liquidity_wallet.key.accAddress,
+            native_investment_reward_wallet: treasury_wallet.key.accAddress,
             /// The native(UST only) investment will be stored into this wallet
-            native_investment_receive_wallet: liquidity_wallet.key.accAddress,
+            native_investment_receive_wallet: treasury_wallet.key.accAddress,
 
             /// This address has the authority to pump in liquidity
             /// The LP tokens for this address will be returned to this address
@@ -414,9 +414,9 @@ const performOperations = async (deploymentDetails) => {
                                         withdrawLiquidityAutorized(deploymentDetails).then(() => {
                                             checkLPTokenBalances(deploymentDetails).then(() => {
                                                 providePairForReward(deploymentDetails).then(() => {
-                                                    //         checkLPTokenBalances(deploymentDetails).then(() => {
-                                                    //             console.log("Finished operations");
-                                                    //         });
+                                                    checkLPTokenBalances(deploymentDetails).then(() => {
+                                                        console.log("Finished operations");
+                                                    });
                                                 });
                                             });
                                         });
@@ -499,7 +499,7 @@ const provideLiquidityAuthorised = async (deploymentDetails) => {
 const withdrawLiquidityAutorized = async (deploymentDetails) => {
     console.log(`withdraw liquidity using lptokens = 1000000000`);
     let withdrawMsg = {
-        withdraw_liquidity : {
+        withdraw_liquidity: {
             sender: deploymentDetails.authLiquidityProvider,
             amount: "1000000000"
         }
@@ -562,7 +562,7 @@ const providePairForReward = async (deploymentDetails) => {
     let increaseAllowanceMsgLW = {
         increase_allowance: {
             spender: deploymentDetails.proxyContractAddress,
-            amount: "10000"
+            amount: "200000"
         }
     };
     let incrAllowRespLW = await executeContract(liquidity_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
@@ -572,7 +572,7 @@ const providePairForReward = async (deploymentDetails) => {
     let increaseAllowanceMsg = {
         increase_allowance: {
             spender: deploymentDetails.proxyContractAddress,
-            amount: "5000"
+            amount: "50000"
         }
     };
     let incrAllowResp = await executeContract(marketing_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
@@ -586,7 +586,7 @@ const providePairForReward = async (deploymentDetails) => {
                             denom: "uusd"
                         }
                     },
-                    amount: "500"
+                    amount: "5000"
                 },
                 {
                     info: {
@@ -594,14 +594,14 @@ const providePairForReward = async (deploymentDetails) => {
                             contract_addr: deploymentDetails.furyContractAddress
                         }
                     },
-                    amount: "5000"
+                    amount: "50000"
                 }
             ]
         }
     };
-    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "500"));
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "5000"));
     console.log(`tax = ${tax}`);
-    let funds = Number(500);
+    let funds = Number(5000);
     funds = funds + Number(tax.amount);
     console.log(`funds = ${funds}`);
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });

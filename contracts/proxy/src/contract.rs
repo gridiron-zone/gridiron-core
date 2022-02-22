@@ -100,7 +100,14 @@ pub fn execute(
             pool_pair_address,
             liquidity_token,
             swap_opening_date,
-        } => configure_proxy(deps, env, info, pool_pair_address, liquidity_token, swap_opening_date),
+        } => configure_proxy(
+            deps,
+            env,
+            info,
+            pool_pair_address,
+            liquidity_token,
+            swap_opening_date,
+        ),
         ExecuteMsg::Receive(received_message) => {
             process_received_message(deps, env, info, received_message)
         }
@@ -167,7 +174,7 @@ pub fn execute(
             ];
 
             let receiver: Option<String>;
-            receiver = Some(config.pair_lp_tokens_holder.to_string());
+            receiver = Some(config.native_investment_receive_wallet.to_string());
             provide_native_liquidity(
                 deps,
                 env,
@@ -266,12 +273,9 @@ fn process_received_message(
             max_spread,
             to,
         }) => forward_swap_to_astro(deps, info, received_message),
-        Ok(ProxyCw20HookMsg::WithdrawLiquidity {}) => withdraw_liquidity(
-            deps,
-            env,
-            info,
-            received_message
-        ),
+        Ok(ProxyCw20HookMsg::WithdrawLiquidity {}) => {
+            withdraw_liquidity(deps, env, info, received_message)
+        }
         // Ok(ProxyCw20HookMsg::ProvideLiquidity {
         //     assets,
         //     slippage_tolerance,
@@ -553,9 +557,9 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
         bonding_period_in_days = config.native_bonding_period_in_days;
     }
     let total_fury_amount = fury_pre_discount
-        .checked_div(Uint128::from(discounted_rate))
-        .unwrap_or_default()
         .checked_mul(Uint128::from(10000u128))
+        .unwrap_or_default()
+        .checked_div(Uint128::from(discounted_rate))
         .unwrap_or_default();
 
     // Get the existing bonded_rewards_details for this user
@@ -733,8 +737,7 @@ pub fn withdraw_liquidity(
     Ok(resp
         .add_submessage(send)
         .add_attribute("action", "Forwarding withdraw message to lptoken address")
-        .set_data(data_msg)
-        )
+        .set_data(data_msg))
 
     // Err(ContractError::Std(StdError::generic_err(format!(
     //     "Nitin was here in sender = {:?} amount = {:?}",
