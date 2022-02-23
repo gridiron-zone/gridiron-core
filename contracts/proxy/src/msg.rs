@@ -1,5 +1,5 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{Decimal, Timestamp, Uint64};
+use cosmwasm_std::{Decimal, Timestamp, Uint64, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ pub struct InstantiateMsg {
     /// discount_rate when fury and UST are both provided
     pub pair_discount_rate: u16,
     /// bonding period when fury and UST are both provided
-    pub pair_bonding_period_in_days: u16,
+    pub pair_bonding_period_in_sec: u64,
     /// Fury tokens for balanced investment will be fetched from this wallet
     pub pair_fury_reward_wallet: String,
     /// The LP tokens for all liquidity providers except
@@ -23,7 +23,7 @@ pub struct InstantiateMsg {
     /// discount_rate when only UST are both provided
     pub native_discount_rate: u16,
     /// bonding period when only UST provided
-    pub native_bonding_period_in_days: u16,
+    pub native_bonding_period_in_sec: u64,
     /// Fury tokens for native(UST only) investment will be fetched from this wallet
     pub native_investment_reward_wallet: String,
     /// The native(UST only) investment will be stored into this wallet
@@ -85,6 +85,10 @@ pub enum ExecuteMsg {
         belief_price: Option<Decimal>,
         max_spread: Option<Decimal>,
         to: Option<String>,
+    },
+    RewardClaim {
+        receiver: String,
+        withdrawal_amount: Uint128,
     }
 }
 
@@ -105,6 +109,9 @@ pub enum QueryMsg {
     /// Returns information about the cumulative prices in a [`CumulativePricesResponse`] object
     CumulativePrices {},
     GetSwapOpeningDate {},
+    GetBondingDetails {
+        user_address: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

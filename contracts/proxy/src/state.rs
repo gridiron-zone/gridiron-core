@@ -10,8 +10,8 @@ pub struct Config {
     
     /// discount_rate when fury and UST are both provided
     pub pair_discount_rate: u16,
-    /// bonding period when fury and UST are both provided
-    pub pair_bonding_period_in_days: u16,
+    /// bonding period when fury and UST are both provided in seconds
+    pub pair_bonding_period_in_sec: u64,
     /// Fury tokens for balanced investment will be fetched from this wallet
     pub pair_fury_reward_wallet: Addr,
     /// The LP tokens for all liquidity providers except
@@ -22,7 +22,7 @@ pub struct Config {
     /// discount_rate when only UST are both provided
     pub native_discount_rate: u16,
     /// bonding period when only UST provided
-    pub native_bonding_period_in_days: u16,
+    pub native_bonding_period_in_sec: u64,
     /// Fury tokens for native(UST only) investment will be fetched from this wallet
     pub native_investment_reward_wallet: Addr,
     /// The native(UST only) investment will be stored into this wallet
@@ -111,9 +111,9 @@ pub struct BondedRewardsDetails {
     pub user_address: String,
 
     /// reward amount acrrued for this bond in quantity of tokens
-    pub bonded_reward_amount_accrued: Uint128,
+    pub bonded_amount: Uint128,
 
-    pub bonding_period_in_days: u16,
+    pub bonding_period: u64,
 
     pub bonding_start_timestamp : Timestamp,
 }

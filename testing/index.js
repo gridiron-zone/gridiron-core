@@ -91,9 +91,9 @@ const proceedToSetup = async (deploymentDetails) => {
                                                             createPoolPairs(deploymentDetails).then(() => {
                                                                 savePairAddressToProxy(deploymentDetails).then(() => {
                                                                     queryProxyConfiguration(deploymentDetails).then(() => {
-                                                                        console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                                                        rl.close();
-                                                                        performOperations(deploymentDetails);
+                                                                        performOperations(deploymentDetails).then(() => {
+                                                                            console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+                                                                        });
                                                                     });
                                                                 });
                                                             });
@@ -302,8 +302,8 @@ const instantiateProxyContract = async (deploymentDetails) => {
 
             /// discount_rate when fury and UST are both provided
             pair_discount_rate: 500,
-            /// bonding period when fury and UST are both provided
-            pair_bonding_period_in_days: 7,
+            /// bonding period when fury and UST are both provided TODO 7*24*60*60
+            pair_bonding_period_in_sec: 7*60,
             /// Fury tokens for balanced investment will be fetched from this wallet
             pair_fury_reward_wallet: liquidity_wallet.key.accAddress,
             /// The LP tokens for all liquidity providers except
@@ -313,8 +313,8 @@ const instantiateProxyContract = async (deploymentDetails) => {
 
             /// discount_rate when only UST are both provided
             native_discount_rate: 700,
-            /// bonding period when only UST provided
-            native_bonding_period_in_days: 5,
+            /// bonding period when only UST provided TODO 5*24*60*60
+            native_bonding_period_in_sec: 5*60,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
             native_investment_reward_wallet: treasury_wallet.key.accAddress,
             /// The native(UST only) investment will be stored into this wallet
@@ -415,11 +415,14 @@ const performOperations = async (deploymentDetails) => {
                                     sellFuryTokens(deploymentDetails).then(() => {
                                         withdrawLiquidityAutorized(deploymentDetails).then(() => {
                                             checkLPTokenBalances(deploymentDetails).then(() => {
-                                                providePairForReward(deploymentDetails).then(() => {
-                                                    checkLPTokenBalances(deploymentDetails).then(() => {
-                                                        provideNativeForRewards(deploymentDetails).then(() => {
-                                                            console.log("Finished operations");
-                                                        })
+                                                provideNativeForRewards(deploymentDetails).then(() => {
+                                                    providePairForReward(deploymentDetails).then(() => {
+                                                        checkLPTokenBalances(deploymentDetails).then(() => {
+                                                            queryInvestmentReward(deploymentDetails).then(() => {
+                                                                console.log("Finished operations");
+                                                                rl.close();
+                                                            });
+                                                        });
                                                     });
                                                 });
                                             });
@@ -636,6 +639,25 @@ const providePairForReward = async (deploymentDetails) => {
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
+const claimInvestmentReward = async (deploymentDetails) => {
+    let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
+        get_bonding_details: {
+            user_address : marketing_wallet.key.accAddress
+        }
+    });
+    console.log(`bonded reward query ${JSON.stringify(qRes)}`);
+
+    let eMsg = {
+        reward_claim: {
+            receiver: marketing_wallet.key.accAddress,
+            withdrawal_amount: "159083",
+        }
+    };
+    console.log(`eMsg = ${JSON.stringify(eMsg)}`);
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, eMsg);
+    console.log(`eMsg Response - ${response['txhash']}`);
+}
+
 const provideNativeForRewards = async (deploymentDetails) => {
     //Get the pool details
     let ufuryCount;
@@ -834,6 +856,15 @@ const reverseSimulationAskFury = async (deploymentDetails) => {
         }
     });
     console.log(JSON.stringify(simulationResult));
+}
+
+const queryInvestmentReward = async (deploymentDetails) => {
+    let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
+        get_bonding_details: {
+            user_address : marketing_wallet.key.accAddress
+        }
+    });
+    console.log(`bonded reward query ${JSON.stringify(qRes)}`);
 }
 
 main()

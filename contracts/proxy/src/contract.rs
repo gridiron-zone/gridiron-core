@@ -38,13 +38,13 @@ pub fn instantiate(
     let mut cfg = Config {
         custom_token_address: addr_validate_to_lower(deps.api, msg.custom_token_address.as_str())?,
         pair_discount_rate: msg.pair_discount_rate,
-        pair_bonding_period_in_days: msg.pair_bonding_period_in_days,
+        pair_bonding_period_in_sec: msg.pair_bonding_period_in_sec,
         pair_fury_reward_wallet: addr_validate_to_lower(
             deps.api,
             msg.pair_fury_reward_wallet.as_str(),
         )?,
         native_discount_rate: msg.native_discount_rate,
-        native_bonding_period_in_days: msg.native_bonding_period_in_days,
+        native_bonding_period_in_sec: msg.native_bonding_period_in_sec,
         native_investment_reward_wallet: addr_validate_to_lower(
             deps.api,
             msg.native_investment_reward_wallet.as_str(),
@@ -212,6 +212,16 @@ pub fn execute(
                 to_addr,
             )
         }
+        ExecuteMsg::RewardClaim {
+            receiver, withdrawal_amount
+        } => claim_investment_reward(
+            deps,
+            env,
+            info,
+            receiver,
+            withdrawal_amount,
+        ),
+
     }
 }
 
@@ -565,7 +575,7 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     }
     let fury_pre_discount;
     let funds_owner;
-    let bonding_period_in_days;
+    let bonding_period;
     let mut discounted_rate = 10000u16; // 100 percent
     if is_fury_provided {
         if fury_equiv_for_ust > fury_amount_provided {
@@ -574,12 +584,12 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
         fury_pre_discount = Uint128::from(2u128) * fury_equiv_for_ust;
         discounted_rate -= config.pair_discount_rate;
         funds_owner = config.pair_fury_reward_wallet.to_string();
-        bonding_period_in_days = config.pair_bonding_period_in_days;
+        bonding_period = config.pair_bonding_period_in_sec;
     } else {
         fury_pre_discount = fury_equiv_for_ust;
         discounted_rate -= config.native_discount_rate;
         funds_owner = config.native_investment_reward_wallet.to_string();
-        bonding_period_in_days = config.native_bonding_period_in_days;
+        bonding_period = config.native_bonding_period_in_sec;
     }
     let total_fury_amount = fury_pre_discount
         .checked_mul(Uint128::from(10000u128))
@@ -597,14 +607,14 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
         }
         None => {}
     }
-    let mut bonding_start_timestamp = config.swap_opening_date;
+    let mut bonding_start_timestamp = Timestamp::from_seconds(0u64);
     if config.swap_opening_date < env.block.time {
         bonding_start_timestamp = env.block.time;
     }
     bonded_rewards_details.push(BondedRewardsDetails {
         user_address: user_address.to_string(),
-        bonded_reward_amount_accrued: total_fury_amount,
-        bonding_period_in_days: bonding_period_in_days,
+        bonded_amount: total_fury_amount,
+        bonding_period: bonding_period,
         bonding_start_timestamp: bonding_start_timestamp,
     });
     BONDED_REWARDS_DETAILS.save(
@@ -784,6 +794,125 @@ pub fn withdraw_liquidity(
     //     "Nitin was here in sender = {:?} amount = {:?}",
     //     sender, amount
     // ))))
+}
+
+fn claim_investment_reward(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    receiver: String,
+    withdrawal_amount: Uint128,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let receiver_addr = deps.api.addr_validate(&receiver)?;
+    //Check if withdrawer is same as invoker
+    if receiver_addr != info.sender {
+        return Err(ContractError::Unauthorized {});
+    }
+    if env.block.time < config.swap_opening_date {
+        return Err(ContractError::Std(StdError::generic_err(
+            format!("Swap Opening not reached {:?}",config.swap_opening_date),
+        )));
+    }
+
+    let FAR_IN_FUTURE = env.block.time.plus_seconds(2000*24*60*60).seconds();
+
+    let mut action = "claim_investment_reward".to_string();
+    let mut unbonded_amount = Uint128::zero();
+    let mut amount_remaining = withdrawal_amount.clone();
+
+    // parse bonding to check maturity and sort with descending order of timestamp
+    let mut bonds = Vec::new();
+    let mut updated_bonds = Vec::new();
+    let mut earliest = FAR_IN_FUTURE;
+    let mut earliestAmount = Uint128::zero();
+
+    let mut all_bonds = BONDED_REWARDS_DETAILS.may_load(deps.storage, receiver.clone())?;
+    match all_bonds {
+        Some(some_bonds) => {
+            bonds = some_bonds;
+            let mut updated_bond;
+            for bond in bonds {
+                println!("receiver {:?} timestamp  {:?} duration  {:?} amount {:?}", 
+                          receiver_addr, bond.bonding_start_timestamp, bond.bonding_period, bond.bonded_amount);
+
+                updated_bond = bond.clone();
+                let _bond_timestamp;
+                if bond.bonding_start_timestamp.seconds() == Timestamp::from_seconds(0u64).seconds() {
+                    _bond_timestamp = config.swap_opening_date;
+                } else {
+                    _bond_timestamp = bond.bonding_start_timestamp;
+                }
+                
+                if _bond_timestamp.plus_seconds(bond.bonding_period).seconds() < earliest {
+                    earliest = _bond_timestamp.plus_seconds(bond.bonding_period).seconds();
+                    earliestAmount = bond.bonded_amount.clone();
+                }
+                if _bond_timestamp.plus_seconds(bond.bonding_period).seconds() < env.block.time.seconds() {
+                    if amount_remaining > Uint128::zero() {
+                        if bond.bonded_amount > amount_remaining {
+                            unbonded_amount = amount_remaining;
+                            updated_bond.bonded_amount -= amount_remaining;
+                            amount_remaining = Uint128::zero();
+                            updated_bonds.push(updated_bond);
+                        } else {
+                            unbonded_amount += bond.bonded_amount;
+                            amount_remaining -= bond.bonded_amount;
+                        }
+                    } else {
+                        updated_bonds.push(updated_bond);
+                    }
+                } else {
+                    updated_bonds.push(updated_bond);
+                }
+            }
+        }
+        None => {}
+    }
+
+    if unbonded_amount == Uint128::zero() {
+        let message;
+        if earliest < FAR_IN_FUTURE {
+            message = format!("Earliest Withdrawal Amount {:?} at {:?}",earliestAmount,earliest);
+        } else {
+            message = format!("No Bonded Rewards");
+        }
+        return Err(ContractError::Std(StdError::generic_err(message)));
+    } else {
+        if amount_remaining > Uint128::zero() {
+            return Err(ContractError::Std(StdError::generic_err(
+                format!("Withdraw Amount requested is more than Claimable {:?}",unbonded_amount),
+            )));
+        }
+    }
+
+    BONDED_REWARDS_DETAILS.save(deps.storage, receiver.clone(), &updated_bonds)?;
+
+    let mut rsp = Response::new();
+
+    let transfer_msg = Cw20ExecuteMsg::Transfer {
+        recipient: receiver,
+        amount: withdrawal_amount,
+    };
+    let exec = WasmMsg::Execute {
+        contract_addr: config.custom_token_address.to_string(),
+        msg: to_binary(&transfer_msg).unwrap(),
+        funds: vec![
+            // Coin {
+            //     denom: token_info.name.to_string(),
+            //     amount: price,
+            // },
+            ]
+        };
+    let send : SubMsg = SubMsg::new(exec);
+    let data_msg = format!("Amount {} transferred", withdrawal_amount).into_bytes();
+
+    rsp = rsp.add_submessage(send)
+             .add_attribute("action", action)
+             .add_attribute("withdrawn", withdrawal_amount.clone().to_string())
+             .set_data(data_msg);
+    
+    return Ok(rsp);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -981,6 +1110,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CumulativePrices {} => to_binary(&query_cumulative_prices(deps)?),
         QueryMsg::GetSwapOpeningDate {} => to_binary(&query_swap_opening_date(deps)?),
+        QueryMsg::GetBondingDetails { user_address } => to_binary(&query_bonding_details(deps, user_address)?),
     }
 }
 
@@ -1030,4 +1160,9 @@ fn query_cumulative_prices(deps: Deps) -> StdResult<CumulativePricesResponse> {
 fn query_swap_opening_date(deps: Deps) -> StdResult<Timestamp> {
     let config: Config = CONFIG.load(deps.storage)?;
     Ok(config.swap_opening_date)
+}
+
+fn query_bonding_details(deps: Deps, user_address: String) -> StdResult<Option<Vec<BondedRewardsDetails>>> {
+    let bonding_details = BONDED_REWARDS_DETAILS.may_load(deps.storage, user_address.clone())?;
+    Ok(bonding_details)
 }
