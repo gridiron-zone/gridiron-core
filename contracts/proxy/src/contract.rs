@@ -487,14 +487,8 @@ pub fn provide_native_liquidity(
 
 pub fn transfer_native_assets_to_native_investment_receive_wallet(
     deps: DepsMut,
-    env: Env,
-    assets: [Asset; 2],
-    slippage_tolerance: Option<Decimal>,
-    auto_stake: Option<bool>,
     receiver: Option<String>,
     funds: Vec<Coin>,
-    user_address: String,
-    is_fury_provided: bool,
 ) -> Result<Response, ContractError> {
     let mut funds_to_pass: Vec<Coin> = Vec::new();
     for fund in funds {
@@ -915,14 +909,8 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                                 } else if smd.next_action == SubMessageNextAction::TransferToNativeInvestmentReceiveWallet{
                                     return transfer_native_assets_to_native_investment_receive_wallet(
                                         deps,
-                                        env,
-                                        assets,
-                                        slippage_tolerance,
-                                        auto_stake,
                                         receiver,
                                         smd.funds,
-                                        smd.user_address,
-                                        smd.is_fury_provided,
                                     );
                                 } else if smd.next_action == SubMessageNextAction::IncreaseAllowance
                                 {
