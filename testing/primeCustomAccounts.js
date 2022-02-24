@@ -13,8 +13,8 @@ import { MsgSend, LCDClient } from '@terra-money/terra.js';
 
 // To use LocalTerra
 const terra = new LCDClient({
-    URL: 'http://localhost:1317',
-    chainID: 'localterra'
+    URL: 'https://bombay-lcd.terra.dev',
+    chainID: 'bombay-12',
 });
 
 export const primeAccountsWithFunds = async () => {

@@ -44,7 +44,7 @@ let configResponseReceived;
 
 const main = async () => {
     try {
-        terraClient.chainID = "localterra";
+        terraClient.chainID = "bombay-12";
         let deploymentDetails = readArtifact(terraClient.chainID);
         const primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
         if (primeAccounts === 'Y' || primeAccounts === 'y') {
@@ -74,42 +74,80 @@ const proceedToSetup = async (deploymentDetails) => {
     if (!deploymentDetails.defaultLPTokenHolder) {
         deploymentDetails.defaultLPTokenHolder = liquidity_wallet.key.accAddress;
     }
+    const sleep_time = 31000;
+
     uploadFuryTokenContract(deploymentDetails).then(() => {
-        instantiateFuryTokenContract(deploymentDetails).then(() => {
-            transferFuryToTreasury(deploymentDetails).then(() => {
-                transferFuryToMarketing(deploymentDetails).then(() => {
-                    transferFuryToLiquidity(deploymentDetails).then(() => {
-                        uploadPairContract(deploymentDetails).then(() => {
-                            uploadStakingContract(deploymentDetails).then(() => {
-                                instantiateStaking(deploymentDetails).then(() => {
-                                    uploadWhiteListContract(deploymentDetails).then(() => {
-                                        uploadFactoryContract(deploymentDetails).then(() => {
-                                            instantiateFactory(deploymentDetails).then(() => {
-                                                uploadProxyContract(deploymentDetails).then(() => {
-                                                    instantiateProxyContract(deploymentDetails).then(() => {
-                                                        queryProxyConfiguration(deploymentDetails).then(() => {
-                                                            createPoolPairs(deploymentDetails).then(() => {
-                                                                savePairAddressToProxy(deploymentDetails).then(() => {
-                                                                    queryProxyConfiguration(deploymentDetails).then(() => {
-                                                                        performOperations(deploymentDetails).then(() => {
-                                                                            console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                                                        });
+        setTimeout(() => {
+            instantiateFuryTokenContract(deploymentDetails).then(() => {
+                setTimeout(() => {
+                    transferFuryToTreasury(deploymentDetails).then(() => {
+                        setTimeout(() => {
+                            transferFuryToMarketing(deploymentDetails).then(() => {
+                                setTimeout(() => {
+                                    transferFuryToLiquidity(deploymentDetails).then(() => {
+                                        setTimeout(() => {
+                                            uploadPairContract(deploymentDetails).then(() => {
+                                                setTimeout(() => {
+                                                    uploadStakingContract(deploymentDetails).then(() => {
+                                                        setTimeout(() => {
+                                                            instantiateStaking(deploymentDetails).then(() => {
+                                                                setTimeout(() => {
+                                                                    uploadWhiteListContract(deploymentDetails).then(() => {
+                                                                        setTimeout(() => {
+                                                                            uploadFactoryContract(deploymentDetails).then(() => {
+                                                                                setTimeout(() => {
+                                                                                    instantiateFactory(deploymentDetails).then(() => {
+                                                                                        setTimeout(() => {
+                                                                                            uploadProxyContract(deploymentDetails).then(() => {
+                                                                                                setTimeout(() => {
+                                                                                                    instantiateProxyContract(deploymentDetails).then(() => {
+                                                                                                        setTimeout(() => {
+                                                                                                            queryProxyConfiguration(deploymentDetails).then(() => {
+                                                                                                                setTimeout(() => {
+                                                                                                                    createPoolPairs(deploymentDetails).then(() => {
+                                                                                                                        setTimeout(() => {
+                                                                                                                            savePairAddressToProxy(deploymentDetails).then(() => {
+                                                                                                                                setTimeout(() => {
+                                                                                                                                    queryProxyConfiguration(deploymentDetails).then(() => {
+                                                                                                                                        setTimeout(() => {
+                                                                                                                                            performOperations(deploymentDetails).then(() => {
+                                                                                                                                                setTimeout(() => {
+                                                                                                                                                    console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+                                                                                                                                                }, sleep_time);
+                                                                                                                                            });
+                                                                                                                                        }, sleep_time);
+                                                                                                                                    });
+                                                                                                                                }, sleep_time);
+                                                                                                                            });
+                                                                                                                        }, sleep_time);
+                                                                                                                    });
+                                                                                                                }, sleep_time);
+                                                                                                            });
+                                                                                                        }, sleep_time);
+                                                                                                    });
+                                                                                                }, sleep_time);
+                                                                                            });
+                                                                                        }, sleep_time);
+                                                                                    });
+                                                                                }, sleep_time);
+                                                                            });
+                                                                        }, sleep_time);
                                                                     });
-                                                                });
+                                                                }, sleep_time);
                                                             });
-                                                        });
+                                                        }, sleep_time);
                                                     });
-                                                });
+                                                }, sleep_time);
                                             });
-                                        });
+                                        }, sleep_time);
                                     });
-                                });
+                                }, sleep_time);
                             });
-                        });
+                        }, sleep_time);
                     });
-                });
+                }, sleep_time);
             });
-        });
+        }, sleep_time);
     });
 }
 
@@ -303,7 +341,7 @@ const instantiateProxyContract = async (deploymentDetails) => {
             /// discount_rate when fury and UST are both provided
             pair_discount_rate: 500,
             /// bonding period when fury and UST are both provided TODO 7*24*60*60
-            pair_bonding_period_in_sec: 7*60,
+            pair_bonding_period_in_sec: 7 * 60,
             /// Fury tokens for balanced investment will be fetched from this wallet
             pair_fury_reward_wallet: liquidity_wallet.key.accAddress,
             /// The LP tokens for all liquidity providers except
@@ -314,7 +352,7 @@ const instantiateProxyContract = async (deploymentDetails) => {
             /// discount_rate when only UST are both provided
             native_discount_rate: 700,
             /// bonding period when only UST provided TODO 5*24*60*60
-            native_bonding_period_in_sec: 5*60,
+            native_bonding_period_in_sec: 5 * 60,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
             native_investment_reward_wallet: treasury_wallet.key.accAddress,
             /// The native(UST only) investment will be stored into this wallet
@@ -626,7 +664,7 @@ const providePairForReward = async (deploymentDetails) => {
                             contract_addr: deploymentDetails.furyContractAddress
                         }
                     },
-					amount: furyForBaseUst.toString()
+                    amount: furyForBaseUst.toString()
                 }
             ]
         }
@@ -642,7 +680,7 @@ const providePairForReward = async (deploymentDetails) => {
 const claimInvestmentReward = async (deploymentDetails) => {
     let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
         get_bonding_details: {
-            user_address : marketing_wallet.key.accAddress
+            user_address: marketing_wallet.key.accAddress
         }
     });
     console.log(`bonded reward query ${JSON.stringify(qRes)}`);
@@ -861,7 +899,7 @@ const reverseSimulationAskFury = async (deploymentDetails) => {
 const queryInvestmentReward = async (deploymentDetails) => {
     let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
         get_bonding_details: {
-            user_address : marketing_wallet.key.accAddress
+            user_address: marketing_wallet.key.accAddress
         }
     });
     console.log(`bonded reward query ${JSON.stringify(qRes)}`);
