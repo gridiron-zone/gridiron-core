@@ -442,41 +442,56 @@ const savePairAddressToProxy = async (deploymentDetails) => {
 }
 
 const performOperations = async (deploymentDetails) => {
+    const sleep_time = 15000;
     checkLPTokenDetails(deploymentDetails).then(() => {
         setTimeout(() => {
             checkLPTokenBalances(deploymentDetails).then(() => {
-                transferFuryToTreasury(deploymentDetails).then(() => {
-                    setTimeout(() => {
+                setTimeout(() => {
 
-                        provideLiquidityAuthorised(deploymentDetails).then(() => {
-                            setTimeout(() => {
+                    transferFuryToTreasury(deploymentDetails).then(() => {
+                        setTimeout(() => {
 
-                                checkLPTokenBalances(deploymentDetails).then(() => {
-                                    queryPool(deploymentDetails).then(() => {
-                                        performSimulation(deploymentDetails).then(() => {
-                                            setTimeout(() => {
+                            provideLiquidityAuthorised(deploymentDetails).then(() => {
+                                setTimeout(() => {
 
-                                                buyFuryTokens(deploymentDetails).then(() => {
-                                                    setTimeout(() => {
+                                    checkLPTokenBalances(deploymentDetails).then(() => {
+                                        setTimeout(() => {
 
-                                                        sellFuryTokens(deploymentDetails).then(() => {
-                                                            setTimeout(() => {
+                                            queryPool(deploymentDetails).then(() => {
+                                                setTimeout(() => {
 
-                                                                withdrawLiquidityAutorized(deploymentDetails).then(() => {
-                                                                    setTimeout(() => {
+                                                    performSimulation(deploymentDetails).then(() => {
+                                                        setTimeout(() => {
 
-                                                                        checkLPTokenBalances(deploymentDetails).then(() => {
-                                                                            provideNativeForRewards(deploymentDetails).then(() => {
+                                                            buyFuryTokens(deploymentDetails).then(() => {
+                                                                setTimeout(() => {
+
+                                                                    sellFuryTokens(deploymentDetails).then(() => {
+                                                                        setTimeout(() => {
+
+                                                                            withdrawLiquidityAutorized(deploymentDetails).then(() => {
                                                                                 setTimeout(() => {
 
-                                                                                    providePairForReward(deploymentDetails).then(() => {
+                                                                                    checkLPTokenBalances(deploymentDetails).then(() => {
                                                                                         setTimeout(() => {
 
-                                                                                            checkLPTokenBalances(deploymentDetails).then(() => {
-                                                                                                queryInvestmentReward(deploymentDetails).then(() => {
-                                                                                                    console.log("Finished operations");
-                                                                                                    rl.close();
-                                                                                                });
+                                                                                            provideNativeForRewards(deploymentDetails).then(() => {
+                                                                                                setTimeout(() => {
+
+                                                                                                    providePairForReward(deploymentDetails).then(() => {
+                                                                                                        setTimeout(() => {
+
+                                                                                                            checkLPTokenBalances(deploymentDetails).then(() => {
+                                                                                                                queryInvestmentReward(deploymentDetails).then(() => {
+                                                                                                                    console.log("Finished operations");
+                                                                                                                    rl.close();
+                                                                                                                });
+                                                                                                            });
+                                                                                                        }, sleep_time);
+
+                                                                                                    });
+                                                                                                }, sleep_time);
+
                                                                                             });
                                                                                         }, sleep_time);
 
@@ -484,30 +499,28 @@ const performOperations = async (deploymentDetails) => {
                                                                                 }, sleep_time);
 
                                                                             });
+                                                                        }, sleep_time);
 
-                                                                        });
-                                                                    }, sleep_time);
+                                                                    });
+                                                                }, sleep_time);
 
-                                                                });
-                                                            }, sleep_time);
+                                                            });
+                                                        }, sleep_time);
 
-                                                        });
-                                                    }, sleep_time);
+                                                    });
+                                                }, sleep_time);
 
-                                                });
-                                            }, sleep_time);
-
-                                        });
+                                            });
+                                        }, sleep_time);
 
                                     });
+                                }, sleep_time);
 
-                                });
-                            }, sleep_time);
+                            });
+                        }, sleep_time);
 
-                        });
-                    }, sleep_time);
-
-                });
+                    });
+                }, sleep_time);
 
             });
         }, sleep_time);
