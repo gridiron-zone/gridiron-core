@@ -443,36 +443,75 @@ const savePairAddressToProxy = async (deploymentDetails) => {
 
 const performOperations = async (deploymentDetails) => {
     checkLPTokenDetails(deploymentDetails).then(() => {
-        checkLPTokenBalances(deploymentDetails).then(() => {
-            transferFuryToTreasury(deploymentDetails).then(() => {
-                provideLiquidityAuthorised(deploymentDetails).then(() => {
-                    checkLPTokenBalances(deploymentDetails).then(() => {
-                        queryPool(deploymentDetails).then(() => {
-                            performSimulation(deploymentDetails).then(() => {
-                                buyFuryTokens(deploymentDetails).then(() => {
-                                    sellFuryTokens(deploymentDetails).then(() => {
-                                        withdrawLiquidityAutorized(deploymentDetails).then(() => {
-                                            checkLPTokenBalances(deploymentDetails).then(() => {
-                                                provideNativeForRewards(deploymentDetails).then(() => {
-                                                    providePairForReward(deploymentDetails).then(() => {
-                                                        checkLPTokenBalances(deploymentDetails).then(() => {
-                                                            queryInvestmentReward(deploymentDetails).then(() => {
-                                                                console.log("Finished operations");
-                                                                rl.close();
-                                                            });
+        setTimeout(() => {
+            checkLPTokenBalances(deploymentDetails).then(() => {
+                transferFuryToTreasury(deploymentDetails).then(() => {
+                    setTimeout(() => {
+
+                        provideLiquidityAuthorised(deploymentDetails).then(() => {
+                            setTimeout(() => {
+
+                                checkLPTokenBalances(deploymentDetails).then(() => {
+                                    queryPool(deploymentDetails).then(() => {
+                                        performSimulation(deploymentDetails).then(() => {
+                                            setTimeout(() => {
+
+                                                buyFuryTokens(deploymentDetails).then(() => {
+                                                    setTimeout(() => {
+
+                                                        sellFuryTokens(deploymentDetails).then(() => {
+                                                            setTimeout(() => {
+
+                                                                withdrawLiquidityAutorized(deploymentDetails).then(() => {
+                                                                    setTimeout(() => {
+
+                                                                        checkLPTokenBalances(deploymentDetails).then(() => {
+                                                                            provideNativeForRewards(deploymentDetails).then(() => {
+                                                                                setTimeout(() => {
+
+                                                                                    providePairForReward(deploymentDetails).then(() => {
+                                                                                        setTimeout(() => {
+
+                                                                                            checkLPTokenBalances(deploymentDetails).then(() => {
+                                                                                                queryInvestmentReward(deploymentDetails).then(() => {
+                                                                                                    console.log("Finished operations");
+                                                                                                    rl.close();
+                                                                                                });
+                                                                                            });
+                                                                                        }, sleep_time);
+
+                                                                                    });
+                                                                                }, sleep_time);
+
+                                                                            });
+
+                                                                        });
+                                                                    }, sleep_time);
+
+                                                                });
+                                                            }, sleep_time);
+
                                                         });
-                                                    });
+                                                    }, sleep_time);
+
                                                 });
-                                            });
+                                            }, sleep_time);
+
                                         });
+
                                     });
+
                                 });
-                            });
+                            }, sleep_time);
+
                         });
-                    });
+                    }, sleep_time);
+
                 });
+
             });
-        });
+        }, sleep_time);
+
     });
 }
 
