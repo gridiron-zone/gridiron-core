@@ -10,12 +10,19 @@ export const WhitelistContractPath = "../artifacts/astroport_whitelist.wasm"
 export const FactoryContractPath = "../artifacts/astroport_factory.wasm"
 export const ProxyContractPath = "../artifacts/astroport_proxy.wasm"
 
-export const terraClient = new LCDClient({
+export const terraTestnetClient = new LCDClient({
     URL: 'https://bombay-lcd.terra.dev',
     chainID: 'bombay-12',
 });
 
+export const localTerraClient = new LocalTerra();
+localTerraClient.chainID = "localterra";
 
+console.log("terraTestnetClient.chainID = " + terraTestnetClient.chainID);
+console.log("localTerraClient.chainID = " + localTerraClient.chainID);
+console.log("env = " + JSON.stringify(process.env));
+export const terraClient = (process.env.TERRA_CLIENT === "localTerra") ? localTerraClient : terraTestnetClient;
+console.log("terraClient.chainID = " + terraClient.chainID);
 // export const mint_wallet = "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k";
 // export const gamifiedairdrop = "terra1m46vy0jk9wck6r9mg2n8jnxw0y4g4xgl3csh9h";
 // export const privatecategory = "terra1k20rlfj3ea47zjr2sp672qqscck5k5mf3uersq";
@@ -107,15 +114,14 @@ export const transaction_wallet = terraClient.wallet(mktransaction);
 const mkrake_return = new MnemonicKey({mnemonic: "royal steel thought shift curve beach reward radar okay butter ceiling detail bamboo asset busy knock kit oxygen jar under remove advance state silver",});
 export const rake_return_wallet = terraClient.wallet(mkrake_return);
 
-
 // These can be the client wallets to interact
-export const walletTest1 = gamified_airdrop_wallet;
-export const walletTest2 = whitelist_airdrop_wallet;
-export const walletTest3 = private_category_wallet;
-export const walletTest4 = marketing_wallet;
-export const walletTest5 = partnership_wallet;
-export const walletTest6 = advisory_wallet;
-export const walletTest10 = gasfee_wallet;
+export const walletTest1 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test1: gamified_airdrop_wallet;
+export const walletTest2 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test2: whitelist_airdrop_wallet;
+export const walletTest3 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test3: private_category_wallet;
+export const walletTest4 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test4: marketing_wallet;
+export const walletTest5 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test5: partnership_wallet;
+export const walletTest6 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test6: advisory_wallet;
+export const walletTest10 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test10: gasfee_wallet;
 
 
 export const mintInitMessage = {

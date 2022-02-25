@@ -199,7 +199,7 @@ pub fn execute(
             let to_addr = if let Some(to_addr) = to {
                 Some(addr_validate_to_lower(deps.api, &to_addr)?)
             } else {
-                None
+                Some(info.clone().sender)
             };
 
             swap(
@@ -213,15 +213,9 @@ pub fn execute(
             )
         }
         ExecuteMsg::RewardClaim {
-            receiver, withdrawal_amount
-        } => claim_investment_reward(
-            deps,
-            env,
-            info,
             receiver,
             withdrawal_amount,
-        ),
-
+        } => claim_investment_reward(deps, env, info, receiver, withdrawal_amount),
     }
 }
 
@@ -277,7 +271,19 @@ fn process_received_message(
             belief_price,
             max_spread,
             to,
-        }) => forward_swap_to_astro(deps, info, received_message),
+        }) => {
+            let to_address: Option<String>;
+            match to {
+                Some(to_addr) => to_address = Some(to_addr),
+                None => to_address = Some(received_message.sender),
+            }
+            let swap_msg_to_send = ProxyCw20HookMsg::Swap {
+                belief_price: belief_price,
+                max_spread: max_spread,
+                to: to_address,
+            };
+            forward_swap_to_astro(deps, info, swap_msg_to_send, received_message.amount)
+        }
         Ok(ProxyCw20HookMsg::WithdrawLiquidity {}) => {
             withdraw_liquidity(deps, env, info, received_message)
         }
@@ -441,13 +447,14 @@ pub fn forward_provide_liquidity_to_astro(
 pub fn forward_swap_to_astro(
     deps: DepsMut,
     info: MessageInfo,
-    received_message: Cw20ReceiveMsg,
+    received_message: ProxyCw20HookMsg,
+    amount: Uint128,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     let send_msg = Cw20ExecuteMsg::Send {
         contract: config.pool_pair_address,
-        amount: received_message.amount,
-        msg: received_message.msg,
+        amount: amount,
+        msg: to_binary(&received_message)?,
     };
     let exec = WasmMsg::Execute {
         contract_addr: config.custom_token_address.into_string(),
@@ -469,7 +476,7 @@ pub fn forward_swap_to_astro(
 
     let mut resp = Response::new();
     resp = resp.add_submessage(send);
-    Ok(resp.add_attribute("action", "Forwarding swap message to token address"))
+    Ok(resp.add_attribute("action", "Forwarding swap message to pool pair address"))
 }
 
 pub fn provide_native_liquidity(
@@ -810,12 +817,13 @@ fn claim_investment_reward(
         return Err(ContractError::Unauthorized {});
     }
     if env.block.time < config.swap_opening_date {
-        return Err(ContractError::Std(StdError::generic_err(
-            format!("Swap Opening not reached {:?}",config.swap_opening_date),
-        )));
+        return Err(ContractError::Std(StdError::generic_err(format!(
+            "Swap Opening not reached {:?}",
+            config.swap_opening_date
+        ))));
     }
 
-    let FAR_IN_FUTURE = env.block.time.plus_seconds(2000*24*60*60).seconds();
+    let FAR_IN_FUTURE = env.block.time.plus_seconds(2000 * 24 * 60 * 60).seconds();
 
     let mut action = "claim_investment_reward".to_string();
     let mut unbonded_amount = Uint128::zero();
@@ -833,22 +841,29 @@ fn claim_investment_reward(
             bonds = some_bonds;
             let mut updated_bond;
             for bond in bonds {
-                println!("receiver {:?} timestamp  {:?} duration  {:?} amount {:?}", 
-                          receiver_addr, bond.bonding_start_timestamp, bond.bonding_period, bond.bonded_amount);
+                println!(
+                    "receiver {:?} timestamp  {:?} duration  {:?} amount {:?}",
+                    receiver_addr,
+                    bond.bonding_start_timestamp,
+                    bond.bonding_period,
+                    bond.bonded_amount
+                );
 
                 updated_bond = bond.clone();
                 let _bond_timestamp;
-                if bond.bonding_start_timestamp.seconds() == Timestamp::from_seconds(0u64).seconds() {
+                if bond.bonding_start_timestamp.seconds() == Timestamp::from_seconds(0u64).seconds()
+                {
                     _bond_timestamp = config.swap_opening_date;
                 } else {
                     _bond_timestamp = bond.bonding_start_timestamp;
                 }
-                
                 if _bond_timestamp.plus_seconds(bond.bonding_period).seconds() < earliest {
                     earliest = _bond_timestamp.plus_seconds(bond.bonding_period).seconds();
                     earliestAmount = bond.bonded_amount.clone();
                 }
-                if _bond_timestamp.plus_seconds(bond.bonding_period).seconds() < env.block.time.seconds() {
+                if _bond_timestamp.plus_seconds(bond.bonding_period).seconds()
+                    < env.block.time.seconds()
+                {
                     if amount_remaining > Uint128::zero() {
                         if bond.bonded_amount > amount_remaining {
                             unbonded_amount = amount_remaining;
@@ -873,16 +888,20 @@ fn claim_investment_reward(
     if unbonded_amount == Uint128::zero() {
         let message;
         if earliest < FAR_IN_FUTURE {
-            message = format!("Earliest Withdrawal Amount {:?} at {:?}",earliestAmount,earliest);
+            message = format!(
+                "Earliest Withdrawal Amount {:?} at {:?}",
+                earliestAmount, earliest
+            );
         } else {
             message = format!("No Bonded Rewards");
         }
         return Err(ContractError::Std(StdError::generic_err(message)));
     } else {
         if amount_remaining > Uint128::zero() {
-            return Err(ContractError::Std(StdError::generic_err(
-                format!("Withdraw Amount requested is more than Claimable {:?}",unbonded_amount),
-            )));
+            return Err(ContractError::Std(StdError::generic_err(format!(
+                "Withdraw Amount requested is more than Claimable {:?}",
+                unbonded_amount
+            ))));
         }
     }
 
@@ -898,20 +917,20 @@ fn claim_investment_reward(
         contract_addr: config.custom_token_address.to_string(),
         msg: to_binary(&transfer_msg).unwrap(),
         funds: vec![
-            // Coin {
-            //     denom: token_info.name.to_string(),
-            //     amount: price,
-            // },
-            ]
-        };
-    let send : SubMsg = SubMsg::new(exec);
+        // Coin {
+        //     denom: token_info.name.to_string(),
+        //     amount: price,
+        // },
+        ],
+    };
+    let send: SubMsg = SubMsg::new(exec);
     let data_msg = format!("Amount {} transferred", withdrawal_amount).into_bytes();
 
-    rsp = rsp.add_submessage(send)
-             .add_attribute("action", action)
-             .add_attribute("withdrawn", withdrawal_amount.clone().to_string())
-             .set_data(data_msg);
-    
+    rsp = rsp
+        .add_submessage(send)
+        .add_attribute("action", action)
+        .add_attribute("withdrawn", withdrawal_amount.clone().to_string())
+        .set_data(data_msg);
     return Ok(rsp);
 }
 
@@ -936,8 +955,8 @@ pub fn swap(
     // Swap is enabled so proceed
     let to_address: Option<String>;
     match to {
-        Some(to_addr) => to_address = Some(String::from(to_addr.as_str())),
-        None => to_address = None,
+        Some(to_addr) => to_address = Some(to_addr.into_string()),
+        None => to_address = Some(info.sender.clone().into_string()),
     }
     let mut funds_to_send = vec![];
     //Check if assets provided are native tokens
@@ -1110,7 +1129,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::CumulativePrices {} => to_binary(&query_cumulative_prices(deps)?),
         QueryMsg::GetSwapOpeningDate {} => to_binary(&query_swap_opening_date(deps)?),
-        QueryMsg::GetBondingDetails { user_address } => to_binary(&query_bonding_details(deps, user_address)?),
+        QueryMsg::GetBondingDetails { user_address } => {
+            to_binary(&query_bonding_details(deps, user_address)?)
+        }
     }
 }
 
@@ -1162,7 +1183,10 @@ fn query_swap_opening_date(deps: Deps) -> StdResult<Timestamp> {
     Ok(config.swap_opening_date)
 }
 
-fn query_bonding_details(deps: Deps, user_address: String) -> StdResult<Option<Vec<BondedRewardsDetails>>> {
+fn query_bonding_details(
+    deps: Deps,
+    user_address: String,
+) -> StdResult<Option<Vec<BondedRewardsDetails>>> {
     let bonding_details = BONDED_REWARDS_DETAILS.may_load(deps.storage, user_address.clone())?;
     Ok(bonding_details)
 }

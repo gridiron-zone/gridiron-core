@@ -4,13 +4,14 @@
   "description": "For testing astroport liquidity and POL",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node -r dotenv/config index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Nitin Khobragade",
   "license": "ISC",
   "dependencies": {
-    "chai": "^4.3.6"
+    "chai": "^4.3.6",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "@terra-money/terra.js": "^2.0.16",

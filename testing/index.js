@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import {
     mintInitMessage,
     MintingContractPath,
@@ -9,6 +11,8 @@ import {
     treasury_wallet,
     liquidity_wallet,
     marketing_wallet,
+    terraTestnetClient,
+    localTerraClient,
     terraClient,
     StakingContractPath,
     FactoryContractPath,
@@ -44,9 +48,11 @@ let configResponseReceived;
 
 const main = async () => {
     try {
-        terraClient.chainID = "bombay-12";
         let deploymentDetails = readArtifact(terraClient.chainID);
-        const primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
+        let primeAccounts = 'N';
+        if (process.env.TERRA_CLIENT === "localTerra") {
+            primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
+        }
         if (primeAccounts === 'Y' || primeAccounts === 'y') {
             primeAccountsWithFunds().then((txHash) => {
                 console.log(txHash);
@@ -74,7 +80,7 @@ const proceedToSetup = async (deploymentDetails) => {
     if (!deploymentDetails.defaultLPTokenHolder) {
         deploymentDetails.defaultLPTokenHolder = liquidity_wallet.key.accAddress;
     }
-    const sleep_time = 31000;
+    const sleep_time = (process.env.TERRA_CLIENT === "localTerra") ? 31 : 15000;
 
     uploadFuryTokenContract(deploymentDetails).then(() => {
         setTimeout(() => {
@@ -196,7 +202,7 @@ const instantiateFuryTokenContract = async (deploymentDetails) => {
             let initiate = await instantiateContract(mint_wallet, deploymentDetails.furyTokenCodeId, mintInitMessage)
             // The order is very imp
             let contractAddress = initiate.logs[0].events[0].attributes[3].value;
-            console.log(`Fury Token Contract ID: ${contractAddress}`)
+            console.log(`Fury Token Contract address: ${contractAddress}`)
             deploymentDetails.furyContractAddress = contractAddress;
             writeArtifact(deploymentDetails, terraClient.chainID);
         }
@@ -826,18 +832,10 @@ const performSimulation = async (deploymentDetails) => {
     });
 }
 
-const performSwap = async (deploymentDetails) => {
-    buyFuryTokens(deploymentDetails).then(() => {
-        sellFuryTokens(deploymentDetails).then(() => {
-
-        });
-    });
-}
-
 const buyFuryTokens = async (deploymentDetails) => {
     let buyFuryMsg = {
         swap: {
-            sender: mint_wallet.key.accAddress,
+            to: mint_wallet.key.accAddress,
             offer_asset: {
                 info: {
                     native_token: {
@@ -845,7 +843,7 @@ const buyFuryTokens = async (deploymentDetails) => {
                     }
                 },
                 amount: "10000"
-            }
+            },
         }
     };
     let buyFuryResp = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, buyFuryMsg, { 'uusd': 10010 });
@@ -855,7 +853,7 @@ const buyFuryTokens = async (deploymentDetails) => {
 const sellFuryTokens = async (deploymentDetails) => {
     let swapMsg = {
         swap: {
-            sender: mint_wallet.key.accAddress,
+            to: mint_wallet.key.accAddress,
             offer_asset: {
                 info: {
                     token: {

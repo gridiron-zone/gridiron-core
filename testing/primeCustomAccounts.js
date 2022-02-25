@@ -28,7 +28,7 @@ export const primeAccountsWithFunds = async () => {
 }
 
 function fundMintingWallet() {
-    console.log(`Funding ${mint_wallet.key.accAddress}`);
+    console.log(`Funding ${mint_wallet.key.accAddress} from ${walletTest1.key.accAddress}`);
     return new Promise(resolve => {
         // create a simple message that moves coin balances
         const send1 = new MsgSend(
@@ -51,7 +51,7 @@ function fundMintingWallet() {
 }
 
 function fundTreasuryWallet() {
-    console.log(`Funding ${treasury_wallet.key.accAddress}`);
+    console.log(`Funding ${treasury_wallet.key.accAddress} from ${walletTest2.key.accAddress}`);
     return new Promise(resolve => {
         const send2 = new MsgSend(
             walletTest2.key.accAddress,
@@ -73,7 +73,7 @@ function fundTreasuryWallet() {
 }
 
 function fundLiquidityWallet() {
-    console.log(`Funding ${liquidity_wallet.key.accAddress}`);
+    console.log(`Funding ${liquidity_wallet.key.accAddress} from ${walletTest3.key.accAddress}`);
     return new Promise(resolve => {
         const send = new MsgSend(
             walletTest3.key.accAddress,
@@ -95,7 +95,7 @@ function fundLiquidityWallet() {
 }
 
 function fundMarketingWallet() {
-    console.log(`Funding ${marketing_wallet.key.accAddress}`);
+    console.log(`Funding ${marketing_wallet.key.accAddress} from ${walletTest4.key.accAddress}`);
     return new Promise(resolve => {
         const send = new MsgSend(
             walletTest4.key.accAddress,
