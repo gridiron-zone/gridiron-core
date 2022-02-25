@@ -20,3 +20,4 @@ target/
 /artifacts/
 /contracts/**/schema/
 /testing/node_modules/
+/testing/artifacts/localterra.json
