@@ -341,6 +341,8 @@ const instantiateProxyContract = async (deploymentDetails) => {
     if (!deploymentDetails.proxyContractAddress) {
         console.log("Instantiating proxy contract");
         let proxyInitMessage = {
+            /// admin address for configuration activities
+            admin_address: mint_wallet.key.accAddress,
             /// contract address of Fury token
             custom_token_address: deploymentDetails.furyContractAddress,
 
