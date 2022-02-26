@@ -17,7 +17,7 @@ const terra = new LCDClient({
     chainID: 'bombay-12',
 });
 
-export const primeAccountsWithFunds = async () => {
+export async function primeAccountsWithFunds() {
     var txHash = [];
     txHash.push(await fundMintingWallet());
     txHash.push(await fundTreasuryWallet());

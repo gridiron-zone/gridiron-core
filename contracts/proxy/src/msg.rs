@@ -1,5 +1,5 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{Decimal, Timestamp, Uint64, Uint128};
+use cosmwasm_std::{Decimal, Timestamp, Uint128, Uint64};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,7 @@ pub struct InstantiateMsg {
     /// Fury tokens for native(UST only) investment will be fetched from this wallet
     pub native_investment_reward_wallet: String,
     /// The native(UST only) investment will be stored into this wallet
-    pub native_investment_receive_wallet: String,    
+    pub native_investment_receive_wallet: String,
 
     /// This address has the authority to pump in liquidity
     /// The LP tokens for this address will be returned to this address
@@ -38,7 +38,7 @@ pub struct InstantiateMsg {
     ///Time in nano seconds since EPOC when the swapping will be enabled
     pub swap_opening_date: Uint64,
 
-    pub pool_pair_address: Option<String>
+    pub pool_pair_address: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -92,7 +92,7 @@ pub enum ExecuteMsg {
     RewardClaim {
         receiver: String,
         withdrawal_amount: Uint128,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -114,6 +114,12 @@ pub enum QueryMsg {
     GetSwapOpeningDate {},
     GetBondingDetails {
         user_address: String,
+    },
+    GetFuryEquivalentToUst {
+        ust_count: Uint128,
+    },
+    GetUstEquivalentToFury {
+        fury_count: Uint128,
     },
 }
 

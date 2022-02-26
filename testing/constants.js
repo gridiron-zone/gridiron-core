@@ -20,7 +20,6 @@ localTerraClient.chainID = "localterra";
 
 console.log("terraTestnetClient.chainID = " + terraTestnetClient.chainID);
 console.log("localTerraClient.chainID = " + localTerraClient.chainID);
-console.log("env = " + JSON.stringify(process.env));
 export const terraClient = (process.env.TERRA_CLIENT === "localTerra") ? localTerraClient : terraTestnetClient;
 console.log("terraClient.chainID = " + terraClient.chainID);
 // export const mint_wallet = "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k";

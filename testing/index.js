@@ -54,19 +54,18 @@ const main = async () => {
             primeAccounts = await question('Do you want to preload custom accounts? (y/N) ');
         }
         if (primeAccounts === 'Y' || primeAccounts === 'y') {
-            primeAccountsWithFunds().then((txHash) => {
-                console.log(txHash);
-                proceedToSetup(deploymentDetails);
-            });
+            let txHash = await primeAccountsWithFunds();
+            console.log(txHash);
+            await proceedToSetup(deploymentDetails);
         } else {
-            proceedToSetup(deploymentDetails);
+            await proceedToSetup(deploymentDetails);
         }
     } catch (error) {
         console.log(error);
     }
 }
 
-const proceedToSetup = async (deploymentDetails) => {
+async function proceedToSetup(deploymentDetails) {
     const startFresh = await question('Do you want to upload and deploy fresh? (y/N)');
     if (startFresh === 'Y' || startFresh === 'y') {
         deploymentDetails = {};
@@ -82,82 +81,46 @@ const proceedToSetup = async (deploymentDetails) => {
     }
     const sleep_time = (process.env.TERRA_CLIENT === "localTerra") ? 31 : 15000;
 
-    uploadFuryTokenContract(deploymentDetails).then(() => {
-        setTimeout(() => {
-            instantiateFuryTokenContract(deploymentDetails).then(() => {
-                setTimeout(() => {
-                    transferFuryToTreasury(deploymentDetails).then(() => {
-                        setTimeout(() => {
-                            transferFuryToMarketing(deploymentDetails).then(() => {
-                                setTimeout(() => {
-                                    transferFuryToLiquidity(deploymentDetails).then(() => {
-                                        setTimeout(() => {
-                                            uploadPairContract(deploymentDetails).then(() => {
-                                                setTimeout(() => {
-                                                    uploadStakingContract(deploymentDetails).then(() => {
-                                                        setTimeout(() => {
-                                                            instantiateStaking(deploymentDetails).then(() => {
-                                                                setTimeout(() => {
-                                                                    uploadWhiteListContract(deploymentDetails).then(() => {
-                                                                        setTimeout(() => {
-                                                                            uploadFactoryContract(deploymentDetails).then(() => {
-                                                                                setTimeout(() => {
-                                                                                    instantiateFactory(deploymentDetails).then(() => {
-                                                                                        setTimeout(() => {
-                                                                                            uploadProxyContract(deploymentDetails).then(() => {
-                                                                                                setTimeout(() => {
-                                                                                                    instantiateProxyContract(deploymentDetails).then(() => {
-                                                                                                        setTimeout(() => {
-                                                                                                            queryProxyConfiguration(deploymentDetails).then(() => {
-                                                                                                                setTimeout(() => {
-                                                                                                                    createPoolPairs(deploymentDetails).then(() => {
-                                                                                                                        setTimeout(() => {
-                                                                                                                            savePairAddressToProxy(deploymentDetails).then(() => {
-                                                                                                                                setTimeout(() => {
-                                                                                                                                    queryProxyConfiguration(deploymentDetails).then(() => {
-                                                                                                                                        setTimeout(() => {
-                                                                                                                                            performOperations(deploymentDetails).then(() => {
-                                                                                                                                                setTimeout(() => {
-                                                                                                                                                    console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
-                                                                                                                                                }, sleep_time);
-                                                                                                                                            });
-                                                                                                                                        }, sleep_time);
-                                                                                                                                    });
-                                                                                                                                }, sleep_time);
-                                                                                                                            });
-                                                                                                                        }, sleep_time);
-                                                                                                                    });
-                                                                                                                }, sleep_time);
-                                                                                                            });
-                                                                                                        }, sleep_time);
-                                                                                                    });
-                                                                                                }, sleep_time);
-                                                                                            });
-                                                                                        }, sleep_time);
-                                                                                    });
-                                                                                }, sleep_time);
-                                                                            });
-                                                                        }, sleep_time);
-                                                                    });
-                                                                }, sleep_time);
-                                                            });
-                                                        }, sleep_time);
-                                                    });
-                                                }, sleep_time);
-                                            });
-                                        }, sleep_time);
-                                    });
-                                }, sleep_time);
-                            });
-                        }, sleep_time);
-                    });
-                }, sleep_time);
-            });
-        }, sleep_time);
-    });
+    await uploadFuryTokenContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await instantiateFuryTokenContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await transferFuryToTreasury(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await transferFuryToMarketing(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await transferFuryToLiquidity(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await uploadPairContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await uploadStakingContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await instantiateStaking(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await uploadWhiteListContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await uploadFactoryContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await instantiateFactory(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await uploadProxyContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await instantiateProxyContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await queryProxyConfiguration(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await createPoolPairs(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await savePairAddressToProxy(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await queryProxyConfiguration(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
+    rl.close();
+    await performOperations(deploymentDetails);
 }
 
-const uploadFuryTokenContract = async (deploymentDetails) => {
+async function uploadFuryTokenContract(deploymentDetails) {
     console.log(`terraClient.chainID = ${terraClient.chainID}`);
     if (!deploymentDetails.furyTokenCodeId) {
         let deployFury = false;
@@ -186,7 +149,7 @@ const uploadFuryTokenContract = async (deploymentDetails) => {
     }
 }
 
-const instantiateFuryTokenContract = async (deploymentDetails) => {
+async function instantiateFuryTokenContract(deploymentDetails) {
     if (!deploymentDetails.furyContractAddress) {
         let instantiateFury = false;
         const answer = await question('Do you want to instantiate Fury Token Contract? (y/N) ');
@@ -199,17 +162,17 @@ const instantiateFuryTokenContract = async (deploymentDetails) => {
         }
         if (instantiateFury) {
             console.log("Instantiating Fury token contract");
-            let initiate = await instantiateContract(mint_wallet, deploymentDetails.furyTokenCodeId, mintInitMessage)
+            let initiate = await instantiateContract(mint_wallet, deploymentDetails.furyTokenCodeId, mintInitMessage);
             // The order is very imp
             let contractAddress = initiate.logs[0].events[0].attributes[3].value;
-            console.log(`Fury Token Contract address: ${contractAddress}`)
+            console.log(`Fury Token Contract address: ${contractAddress}`);
             deploymentDetails.furyContractAddress = contractAddress;
             writeArtifact(deploymentDetails, terraClient.chainID);
         }
     }
 }
 
-const transferFuryToTreasury = async (deploymentDetails) => {
+async function transferFuryToTreasury(deploymentDetails) {
     let transferFuryToTreasuryMsg = {
         transfer: {
             recipient: treasury_wallet.key.accAddress,
@@ -221,7 +184,7 @@ const transferFuryToTreasury = async (deploymentDetails) => {
     console.log(`transferFuryToTreasuryMsg Response - ${response['txhash']}`);
 }
 
-const transferFuryToMarketing = async (deploymentDetails) => {
+async function transferFuryToMarketing(deploymentDetails) {
     let transferFuryToMarketingMsg = {
         transfer: {
             recipient: marketing_wallet.key.accAddress,
@@ -233,7 +196,7 @@ const transferFuryToMarketing = async (deploymentDetails) => {
     console.log(`transferFuryToMarketingMsg Response - ${response['txhash']}`);
 }
 
-const transferFuryToLiquidity = async (deploymentDetails) => {
+async function transferFuryToLiquidity(deploymentDetails) {
     let transferFuryToLiquidityMsg = {
         transfer: {
             recipient: liquidity_wallet.key.accAddress,
@@ -245,7 +208,7 @@ const transferFuryToLiquidity = async (deploymentDetails) => {
     console.log(`transferFuryToLiquidityMsg Response - ${response['txhash']}`);
 }
 
-const uploadPairContract = async (deploymentDetails) => {
+async function uploadPairContract(deploymentDetails) {
     if (!deploymentDetails.pairCodeId) {
         console.log("Uploading pair contract (xyk)");
         let contractId = await storeCode(mint_wallet, PairContractPath); // Getting the contract id from local terra
@@ -255,7 +218,7 @@ const uploadPairContract = async (deploymentDetails) => {
     }
 }
 
-const uploadStakingContract = async (deploymentDetails) => {
+async function uploadStakingContract(deploymentDetails) {
     if (!deploymentDetails.stakingCodeId) {
         console.log("Uploading staking contract");
         let contractId = await storeCode(mint_wallet, StakingContractPath); // Getting the contract id from local terra
@@ -265,25 +228,25 @@ const uploadStakingContract = async (deploymentDetails) => {
     }
 }
 
-const instantiateStaking = async (deploymentDetails) => {
+async function instantiateStaking(deploymentDetails) {
     if (!deploymentDetails.stakingAddress || !deploymentDetails.xastroAddress) {
         console.log("Instantiating staking contract");
         let stakingInitMessage = {
             owner: deploymentDetails.adminWallet,
             token_code_id: deploymentDetails.furyTokenCodeId,
             deposit_token_addr: deploymentDetails.furyContractAddress
-        }
+        };
 
-        let result = await instantiateContract(mint_wallet, deploymentDetails.stakingCodeId, stakingInitMessage)
+        let result = await instantiateContract(mint_wallet, deploymentDetails.stakingCodeId, stakingInitMessage);
         // The order is very imp
         let contractAddress = result.logs[0].events[0].attributes.filter(element => element.key == 'contract_address').map(x => x.value);
-        deploymentDetails.stakingAddress = contractAddress.shift()
+        deploymentDetails.stakingAddress = contractAddress.shift();
         deploymentDetails.xastroAddress = contractAddress.shift();
         writeArtifact(deploymentDetails, terraClient.chainID);
     }
 }
 
-const uploadWhiteListContract = async (deploymentDetails) => {
+async function uploadWhiteListContract(deploymentDetails) {
     if (!deploymentDetails.whitelistCodeId) {
         console.log("Uploading whitelist contract");
         let contractId = await storeCode(mint_wallet, StakingContractPath); // Getting the contract id from local terra
@@ -293,7 +256,7 @@ const uploadWhiteListContract = async (deploymentDetails) => {
     }
 }
 
-const uploadFactoryContract = async (deploymentDetails) => {
+async function uploadFactoryContract(deploymentDetails) {
     if (!deploymentDetails.factoryCodeId) {
         console.log("Uploading factory contract");
         let contractId = await storeCode(mint_wallet, FactoryContractPath); // Getting the contract id from local terra
@@ -303,7 +266,7 @@ const uploadFactoryContract = async (deploymentDetails) => {
     }
 }
 
-const instantiateFactory = async (deploymentDetails) => {
+async function instantiateFactory(deploymentDetails) {
     if (!deploymentDetails.factoryAddress) {
         console.log("Instantiating factory contract");
         let factoryInitMessage = {
@@ -318,7 +281,7 @@ const instantiateFactory = async (deploymentDetails) => {
             ],
             token_code_id: deploymentDetails.furyTokenCodeId,
             whitelist_code_id: deploymentDetails.whitelistCodeId
-        }
+        };
         console.log(JSON.stringify(factoryInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.factoryCodeId, factoryInitMessage);
         let contractAddresses = result.logs[0].events[0].attributes.filter(element => element.key == 'contract_address').map(x => x.value);
@@ -327,7 +290,7 @@ const instantiateFactory = async (deploymentDetails) => {
     }
 }
 
-const uploadProxyContract = async (deploymentDetails) => {
+async function uploadProxyContract(deploymentDetails) {
     if (!deploymentDetails.proxyCodeId) {
         console.log("Uploading proxy contract");
         let contractId = await storeCode(mint_wallet, ProxyContractPath); // Getting the contract id from local terra
@@ -337,7 +300,7 @@ const uploadProxyContract = async (deploymentDetails) => {
     }
 }
 
-const instantiateProxyContract = async (deploymentDetails) => {
+async function instantiateProxyContract(deploymentDetails) {
     if (!deploymentDetails.proxyContractAddress) {
         console.log("Instantiating proxy contract");
         let proxyInitMessage = {
@@ -374,7 +337,7 @@ const instantiateProxyContract = async (deploymentDetails) => {
 
             /// Pool pair contract address of astroport
             pool_pair_address: deploymentDetails.poolPairContractAddress,
-        }
+        };
         console.log(JSON.stringify(proxyInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
         let contractAddresses = result.logs[0].events[0].attributes.filter(element => element.key == 'contract_address').map(x => x.value);
@@ -383,7 +346,7 @@ const instantiateProxyContract = async (deploymentDetails) => {
     }
 }
 
-const queryProxyConfiguration = async (deploymentDetails) => {
+async function queryProxyConfiguration(deploymentDetails) {
     //Fetch configuration
     let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
         configuration: {}
@@ -392,7 +355,7 @@ const queryProxyConfiguration = async (deploymentDetails) => {
     console.log(JSON.stringify(configResponseReceived));
 }
 
-const createPoolPairs = async (deploymentDetails) => {
+async function createPoolPairs(deploymentDetails) {
     if (!deploymentDetails.poolPairContractAddress) {
         let init_param = { proxy: deploymentDetails.proxyContractAddress };
         console.log(`init_param = ${JSON.stringify(init_param)}`);
@@ -416,20 +379,20 @@ const createPoolPairs = async (deploymentDetails) => {
         console.log(`executeMsg = ${executeMsg}`);
         let response = await executeContract(mint_wallet, deploymentDetails.factoryAddress, executeMsg);
 
-        deploymentDetails.poolPairContractAddress = response.logs[0].eventsByType.from_contract.pair_contract_addr[0]
+        deploymentDetails.poolPairContractAddress = response.logs[0].eventsByType.from_contract.pair_contract_addr[0];
 
         let pool_info = await queryContract(deploymentDetails.poolPairContractAddress, {
             pair: {}
-        })
+        });
 
-        deploymentDetails.poolLpTokenAddress = pool_info.liquidity_token
+        deploymentDetails.poolLpTokenAddress = pool_info.liquidity_token;
 
-        console.log(`Pair successfully created! Address: ${deploymentDetails.poolPairContractAddress}`)
-        writeArtifact(deploymentDetails, terraClient.chainID)
+        console.log(`Pair successfully created! Address: ${deploymentDetails.poolPairContractAddress}`);
+        writeArtifact(deploymentDetails, terraClient.chainID);
     }
 }
 
-const savePairAddressToProxy = async (deploymentDetails) => {
+async function savePairAddressToProxy(deploymentDetails) {
     if (!deploymentDetails.poolpairSavedToProxy) {
         //Fetch configuration
         let configResponse = await queryContract(deploymentDetails.proxyContractAddress, {
@@ -441,102 +404,70 @@ const savePairAddressToProxy = async (deploymentDetails) => {
         let executeMsg = {
             configure: configResponse
         };
-        console.log(`executeMsg = ${executeMsg}`);
+        console.log(`executeMsg = ${JSON.stringify(executeMsg, null, 2)}`);
         let response = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, executeMsg);
         console.log(`Save Response - ${response['txhash']}`);
         deploymentDetails.poolpairSavedToProxy = true;
-        writeArtifact(deploymentDetails, terraClient.chainID)
+        writeArtifact(deploymentDetails, terraClient.chainID);
     }
 }
 
-const performOperations = async (deploymentDetails) => {
-    const sleep_time = 15000;
-    checkLPTokenDetails(deploymentDetails).then(() => {
-        setTimeout(() => {
-            checkLPTokenBalances(deploymentDetails).then(() => {
-                setTimeout(() => {
+async function performOperations(deploymentDetails) {
+    const sleep_time = (process.env.TERRA_CLIENT === "localTerra") ? 31 : 15000;
+    await checkLPTokenDetails(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                    transferFuryToTreasury(deploymentDetails).then(() => {
-                        setTimeout(() => {
+    await checkLPTokenBalances(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await transferFuryToTreasury(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await provideLiquidityAuthorised(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await checkLPTokenBalances(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await queryPool(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await performSimulation(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                            provideLiquidityAuthorised(deploymentDetails).then(() => {
-                                setTimeout(() => {
+    await getFuryEquivalentToUST(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await buyFuryTokens(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                    checkLPTokenBalances(deploymentDetails).then(() => {
-                                        setTimeout(() => {
+    await getUSTEquivalentToFury(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await sellFuryTokens(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                            queryPool(deploymentDetails).then(() => {
-                                                setTimeout(() => {
+    await withdrawLiquidityAutorized(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                    performSimulation(deploymentDetails).then(() => {
-                                                        setTimeout(() => {
+    await checkLPTokenBalances(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                            buyFuryTokens(deploymentDetails).then(() => {
-                                                                setTimeout(() => {
+    await provideNativeForRewards(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                                    sellFuryTokens(deploymentDetails).then(() => {
-                                                                        setTimeout(() => {
+    await providePairForReward(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                                            withdrawLiquidityAutorized(deploymentDetails).then(() => {
-                                                                                setTimeout(() => {
+    await checkLPTokenBalances(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                                                    checkLPTokenBalances(deploymentDetails).then(() => {
-                                                                                        setTimeout(() => {
+    await queryInvestmentReward(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-                                                                                            provideNativeForRewards(deploymentDetails).then(() => {
-                                                                                                setTimeout(() => {
-
-                                                                                                    providePairForReward(deploymentDetails).then(() => {
-                                                                                                        setTimeout(() => {
-
-                                                                                                            checkLPTokenBalances(deploymentDetails).then(() => {
-                                                                                                                queryInvestmentReward(deploymentDetails).then(() => {
-                                                                                                                    console.log("Finished operations");
-                                                                                                                    rl.close();
-                                                                                                                });
-                                                                                                            });
-                                                                                                        }, sleep_time);
-
-                                                                                                    });
-                                                                                                }, sleep_time);
-
-                                                                                            });
-                                                                                        }, sleep_time);
-
-                                                                                    });
-                                                                                }, sleep_time);
-
-                                                                            });
-                                                                        }, sleep_time);
-
-                                                                    });
-                                                                }, sleep_time);
-
-                                                            });
-                                                        }, sleep_time);
-
-                                                    });
-                                                }, sleep_time);
-
-                                            });
-                                        }, sleep_time);
-
-                                    });
-                                }, sleep_time);
-
-                            });
-                        }, sleep_time);
-
-                    });
-                }, sleep_time);
-
-            });
-        }, sleep_time);
-
-    });
+    // await claimInvestmentReward(deploymentDetails);
+    console.log("Finished operations");
 }
 
-const checkLPTokenDetails = async (deploymentDetails) => {
+async function checkLPTokenDetails(deploymentDetails) {
     let lpTokenDetails = await queryContract(deploymentDetails.poolLpTokenAddress, {
         token_info: {}
     });
@@ -544,7 +475,7 @@ const checkLPTokenDetails = async (deploymentDetails) => {
     assert.equal(lpTokenDetails['name'], "FURY-UUSD-LP");
 }
 
-const checkLPTokenBalances = async (deploymentDetails) => {
+async function checkLPTokenBalances(deploymentDetails) {
     console.log("Getting LPToken balances");
     await queryContract(deploymentDetails.poolLpTokenAddress, {
         all_accounts: {}
@@ -560,7 +491,7 @@ const checkLPTokenBalances = async (deploymentDetails) => {
     });
 }
 
-const provideLiquidityAuthorised = async (deploymentDetails) => {
+async function provideLiquidityAuthorised(deploymentDetails) {
     //First increase allowance for proxy to spend from mint_wallet wallet
     let increaseAllowanceMsg = {
         increase_allowance: {
@@ -601,7 +532,7 @@ const provideLiquidityAuthorised = async (deploymentDetails) => {
     console.log(`Provide Liquidity (from treasury) Response - ${response['txhash']}`);
 }
 
-const withdrawLiquidityAutorized = async (deploymentDetails) => {
+async function withdrawLiquidityAutorized(deploymentDetails) {
     console.log(`withdraw liquidity using lptokens = 1000000000`);
     let withdrawMsg = {
         withdraw_liquidity: {
@@ -621,7 +552,7 @@ const withdrawLiquidityAutorized = async (deploymentDetails) => {
     console.log(`withdraw Liquidity (from treasury) Response - ${qResp['txhash']}`);
 }
 
-const provideLiquidityGeneral = async (deploymentDetails) => {
+async function provideLiquidityGeneral(deploymentDetails) {
     //First increase allowance for proxy to spend from marketing_wallet wallet
     let increaseAllowanceMsg = {
         increase_allowance: {
@@ -662,7 +593,7 @@ const provideLiquidityGeneral = async (deploymentDetails) => {
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
-const providePairForReward = async (deploymentDetails) => {
+async function providePairForReward(deploymentDetails) {
     //Get the pool details
     let ufuryCount;
     let uustCount;
@@ -679,7 +610,7 @@ const providePairForReward = async (deploymentDetails) => {
             ufuryCount = asset.amount;
             console.log("Fury Tokens = " + ufuryCount + "uFury");
         }
-    })
+    });
 
     let hundredPercent = Number(10000);
     let rate = hundredPercent - configResponseReceived.pair_discount_rate;
@@ -737,26 +668,26 @@ const providePairForReward = async (deploymentDetails) => {
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
-const claimInvestmentReward = async (deploymentDetails) => {
-    let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
+async function claimInvestmentReward(deploymentDetails) {
+    let getBondingDetailsReq = await queryContract(deploymentDetails.proxyContractAddress, {
         get_bonding_details: {
             user_address: marketing_wallet.key.accAddress
         }
     });
-    console.log(`bonded reward query ${JSON.stringify(qRes)}`);
+    console.log(`bonded reward query response ${JSON.stringify(getBondingDetailsReq)}`);
 
-    let eMsg = {
+    let rewardClaimMsg = {
         reward_claim: {
             receiver: marketing_wallet.key.accAddress,
             withdrawal_amount: "159083",
         }
     };
-    console.log(`eMsg = ${JSON.stringify(eMsg)}`);
-    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, eMsg);
-    console.log(`eMsg Response - ${response['txhash']}`);
+    console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
+    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+    console.log(`Reward Claim Response - ${response['txhash']}`);
 }
 
-const provideNativeForRewards = async (deploymentDetails) => {
+async function provideNativeForRewards(deploymentDetails) {
     //Get the pool details
     let ufuryCount;
     let uustCount;
@@ -773,7 +704,7 @@ const provideNativeForRewards = async (deploymentDetails) => {
             ufuryCount = asset.amount;
             console.log("Fury Tokens = " + ufuryCount + "uFury");
         }
-    })
+    });
 
     let hundredPercent = Number(10000);
     let rate = hundredPercent - configResponseReceived.native_discount_rate;
@@ -796,8 +727,7 @@ const provideNativeForRewards = async (deploymentDetails) => {
 
     let executeMsg = {
         provide_native_for_reward: {
-            asset:
-            {
+            asset: {
                 info: {
                     native_token: {
                         denom: "uusd"
@@ -805,7 +735,6 @@ const provideNativeForRewards = async (deploymentDetails) => {
                 },
                 amount: baseUstAmount.toString()
             }
-
         }
     };
     let tax = await terraClient.utils.calculateTax(new Coin("uusd", baseUstAmount.toString()));
@@ -816,7 +745,7 @@ const provideNativeForRewards = async (deploymentDetails) => {
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
-const queryPool = async (deploymentDetails) => {
+async function queryPool(deploymentDetails) {
     console.log("querying pool details");
     let poolDetails = await queryContract(deploymentDetails.proxyContractAddress, {
         pool: {}
@@ -824,17 +753,28 @@ const queryPool = async (deploymentDetails) => {
     console.log(JSON.stringify(poolDetails));
 }
 
-const performSimulation = async (deploymentDetails) => {
-    simulationOfferNative(deploymentDetails).then(() => {
-        simulationOfferFury(deploymentDetails).then(() => {
-            reverseSimulationAskNative(deploymentDetails).then(() => {
-                reverseSimulationAskFury(deploymentDetails);
-            });
-        });
-    });
+async function performSimulation(deploymentDetails) {
+    const sleep_time = (process.env.TERRA_CLIENT === "localTerra") ? 31 : 15000;
+    await simulationOfferNative(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await simulationOfferFury(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await reverseSimulationAskNative(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await reverseSimulationAskFury(deploymentDetails);
 }
 
-const buyFuryTokens = async (deploymentDetails) => {
+async function getFuryEquivalentToUST(deploymentDetails) {
+    let ustCount = "10000";
+    let furyCount = await queryContract(deploymentDetails.proxyContractAddress, {
+        get_fury_equivalent_to_ust: {
+            ust_count: ustCount
+        }
+    });
+    console.log(`${ustCount} uust = ${furyCount} uFury`);
+}
+
+async function buyFuryTokens(deploymentDetails) {
     let buyFuryMsg = {
         swap: {
             to: mint_wallet.key.accAddress,
@@ -852,7 +792,17 @@ const buyFuryTokens = async (deploymentDetails) => {
     console.log(`Buy Fury swap response tx hash = ${buyFuryResp['txhash']}`);
 }
 
-const sellFuryTokens = async (deploymentDetails) => {
+async function getUSTEquivalentToFury(deploymentDetails) {
+    let furyCount = "1000000";
+    let ustCount = await queryContract(deploymentDetails.proxyContractAddress, {
+        get_ust_equivalent_to_fury: {
+            fury_count: furyCount
+        }
+    });
+    console.log(`${furyCount} uFury = ${ustCount} uusd`);
+}
+
+async function sellFuryTokens(deploymentDetails) {
     let swapMsg = {
         swap: {
             to: mint_wallet.key.accAddress,
@@ -880,7 +830,7 @@ const sellFuryTokens = async (deploymentDetails) => {
     console.log(`Sell Fury swap response tx hash = ${sellFuryResp['txhash']}`);
 }
 
-const simulationOfferNative = async (deploymentDetails) => {
+async function simulationOfferNative(deploymentDetails) {
     console.log("performing simulation for offering native coins");
     let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
         simulation: {
@@ -897,7 +847,7 @@ const simulationOfferNative = async (deploymentDetails) => {
     console.log(JSON.stringify(simulationResult));
 }
 
-const simulationOfferFury = async (deploymentDetails) => {
+async function simulationOfferFury(deploymentDetails) {
     console.log("performing simulation for offering Fury tokens");
     let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
         simulation: {
@@ -914,7 +864,7 @@ const simulationOfferFury = async (deploymentDetails) => {
     console.log(JSON.stringify(simulationResult));
 }
 
-const reverseSimulationAskNative = async (deploymentDetails) => {
+async function reverseSimulationAskNative(deploymentDetails) {
     console.log("performing reverse simulation asking for native coins");
     let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
         reverse_simulation: {
@@ -931,7 +881,7 @@ const reverseSimulationAskNative = async (deploymentDetails) => {
     console.log(JSON.stringify(simulationResult));
 }
 
-const reverseSimulationAskFury = async (deploymentDetails) => {
+async function reverseSimulationAskFury(deploymentDetails) {
     console.log("performing reverse simulation asking for Fury tokens");
     let simulationResult = await queryContract(deploymentDetails.proxyContractAddress, {
         reverse_simulation: {
@@ -948,13 +898,13 @@ const reverseSimulationAskFury = async (deploymentDetails) => {
     console.log(JSON.stringify(simulationResult));
 }
 
-const queryInvestmentReward = async (deploymentDetails) => {
+async function queryInvestmentReward(deploymentDetails) {
     let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
         get_bonding_details: {
             user_address: marketing_wallet.key.accAddress
         }
     });
-    console.log(`bonded reward query ${JSON.stringify(qRes)}`);
+    console.log(`bonded reward query response ${JSON.stringify(qRes)}`);
 }
 
 main()

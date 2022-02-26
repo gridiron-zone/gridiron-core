@@ -27,6 +27,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const FURY_PROVIDED: bool = true;
 const NO_FURY_PROVIDED: bool = false;
 
+const HUNDRED_PERCENT: u128 = 10000u128;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -1125,6 +1127,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetBondingDetails { user_address } => {
             to_binary(&query_bonding_details(deps, user_address)?)
         }
+        QueryMsg::GetUstEquivalentToFury { fury_count } => {
+            to_binary(&get_ust_equivalent_to_fury(deps, fury_count)?)
+        }
+        QueryMsg::GetFuryEquivalentToUst { ust_count } => {
+            to_binary(&get_fury_equivalent_to_ust(deps, ust_count)?)
+        }
     }
 }
 
@@ -1182,4 +1190,124 @@ fn query_bonding_details(
 ) -> StdResult<Option<Vec<BondedRewardsDetails>>> {
     let bonding_details = BONDED_REWARDS_DETAILS.may_load(deps.storage, user_address.clone())?;
     Ok(bonding_details)
+}
+
+fn get_ust_equivalent_to_fury(deps: Deps, fury_count: Uint128) -> StdResult<Uint128> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    let pool_rsp: PoolResponse = deps
+        .querier
+        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
+
+    let mut uust_count = Uint128::zero();
+    let mut ufury_count = Uint128::zero();
+    for asset in pool_rsp.assets {
+        if (asset.info.is_native_token()) {
+            uust_count = asset.amount;
+        }
+        if (!asset.info.is_native_token()) {
+            ufury_count = asset.amount;
+        }
+    }
+    let ust_equiv_for_fury = fury_count
+        .checked_mul(uust_count)?
+        .checked_div(ufury_count)?;
+    return Ok(ust_equiv_for_fury);
+}
+
+fn get_fury_equivalent_to_ust(deps: Deps, ust_count: Uint128) -> StdResult<Uint128> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    let pool_rsp: PoolResponse = deps
+        .querier
+        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
+
+    let mut uust_count = Uint128::zero();
+    let mut ufury_count = Uint128::zero();
+    for asset in pool_rsp.assets {
+        if (asset.info.is_native_token()) {
+            uust_count = asset.amount;
+        }
+        if (!asset.info.is_native_token()) {
+            ufury_count = asset.amount;
+        }
+    }
+    let fury_equiv_for_ust = ust_count
+        .checked_mul(ufury_count)?
+        .checked_div(uust_count)?;
+    return Ok(fury_equiv_for_ust);
+}
+
+pub fn query_platform_fees(deps: Deps, msg: Binary) -> StdResult<Uint128> {
+    let config = CONFIG.load(deps.storage)?;
+    let platform_fees_percentage = Uint128::zero();
+    let fury_amount_provided;
+    match from_binary(&msg) {
+        Ok(ExecuteMsg::Configure {
+            pool_pair_address: _,
+            liquidity_token: _,
+            swap_opening_date: _,
+        }) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::Receive(_)) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::ProvidePairForReward {
+            assets: _,
+            slippage_tolerance: _,
+            auto_stake: _,
+        }) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::ProvideNativeForReward {
+            asset: _,
+            slippage_tolerance: _,
+            auto_stake: _,
+        }) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::ProvideLiquidity {
+            assets: _,
+            slippage_tolerance: _,
+            auto_stake: _,
+        }) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::Swap {
+            offer_asset: _,
+            belief_price: _,
+            max_spread: _,
+            to: _,
+        }) => {
+            return Ok(Uint128::zero());
+        }
+        Ok(ExecuteMsg::RewardClaim {
+            receiver: _,
+            withdrawal_amount,
+        }) => {
+            fury_amount_provided = withdrawal_amount;
+        }
+        Err(err) => {
+            return Err(StdError::generic_err(format!("{:?}", err)));
+        }
+    }
+    let pool_rsp: PoolResponse = deps
+        .querier
+        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
+
+    let mut uust_count = Uint128::zero();
+    let mut ufury_count = Uint128::zero();
+    for asset in pool_rsp.assets {
+        if (asset.info.is_native_token()) {
+            uust_count = asset.amount;
+        }
+        if (!asset.info.is_native_token()) {
+            ufury_count = asset.amount;
+        }
+    }
+    let ust_equiv_for_fury = fury_amount_provided
+        .checked_mul(uust_count)?
+        .checked_div(ufury_count)?;
+    return Ok(ust_equiv_for_fury
+        .checked_mul(platform_fees_percentage)?
+        .checked_div(Uint128::from(HUNDRED_PERCENT))?);
 }
