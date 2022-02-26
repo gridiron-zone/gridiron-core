@@ -48,7 +48,8 @@ const main = async () => {
         testinstr(deploymentDetails);
     } catch (error) {
         console.log(error);
-    }
+    };
+    rl.close();
 }
 
 const testinstr = async (deploymentDetails) => {

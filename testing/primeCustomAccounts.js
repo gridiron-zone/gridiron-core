@@ -6,16 +6,20 @@ import {
     mint_wallet,
     treasury_wallet,
     liquidity_wallet,
-    marketing_wallet
+    marketing_wallet,
+    localTerraClient,
 } from './constants.js';
 
 import {MsgSend, LCDClient} from '@terra-money/terra.js';
 
 // To use LocalTerra
-const terra = new LCDClient({
-    URL: 'https://bombay-lcd.terra.dev',
-    chainID: 'bombay-12',
-});
+const terra = localTerraClient;
+
+// To use Testnet  // BUT Testnet does not have WalletTest1 or similar wallets
+// const terra = new LCDClient({
+//     URL: 'https://bombay-lcd.terra.dev',
+//     chainID: 'bombay-12',
+// });
 
 export async function primeAccountsWithFunds() {
     var txHash = [];
