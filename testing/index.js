@@ -319,7 +319,7 @@ async function instantiateProxyContract(deploymentDetails) {
             /// discount_rate when fury and UST are both provided
             pair_discount_rate: 500,
             /// bonding period when fury and UST are both provided TODO 7*24*60*60
-            pair_bonding_period_in_sec: 7 * 60,
+            pair_bonding_period_in_sec: 2 * 60,
             /// Fury tokens for balanced investment will be fetched from this wallet
             pair_fury_reward_wallet: liquidity_wallet.key.accAddress,
             /// The LP tokens for all liquidity providers except
@@ -330,7 +330,7 @@ async function instantiateProxyContract(deploymentDetails) {
             /// discount_rate when only UST are both provided
             native_discount_rate: 700,
             /// bonding period when only UST provided TODO 5*24*60*60
-            native_bonding_period_in_sec: 5 * 60,
+            native_bonding_period_in_sec: 3 * 60,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
             native_investment_reward_wallet: treasury_wallet.key.accAddress,
             /// The native(UST only) investment will be stored into this wallet
@@ -470,7 +470,7 @@ async function performOperations(deploymentDetails) {
     await queryInvestmentReward(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
 
-    // await claimInvestmentReward(deploymentDetails);
+    await claimInvestmentReward(deploymentDetails);
     console.log("Finished operations");
 }
 
@@ -676,22 +676,52 @@ async function providePairForReward(deploymentDetails) {
 }
 
 async function claimInvestmentReward(deploymentDetails) {
-    let getBondingDetailsReq = await queryContract(deploymentDetails.proxyContractAddress, {
-        get_bonding_details: {
-            user_address: marketing_wallet.key.accAddress
-        }
-    });
-    console.log(`bonded reward query response ${JSON.stringify(getBondingDetailsReq)}`);
-
     let rewardClaimMsg = {
         reward_claim: {
             receiver: marketing_wallet.key.accAddress,
-            withdrawal_amount: "159083",
+            withdrawal_amount: "105301",
         }
     };
-    console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
-    let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
-    console.log(`Reward Claim Response - ${response['txhash']}`);
+
+    console.log("Waiting for 1sec to try early Claim - would fail");
+    //ADD DELAY small to check failure of quick withdraw - 1sec
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    let response;
+
+    try {
+        console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
+        console.log("Trying to Claim Pair Reward before Maturity");
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        console.log("Not expected to reach here");
+        console.log(`Reward Claim Response - ${response['txhash']}`);
+    } catch (error) {
+        console.log("Failure as expected");
+        console.log("Waiting for 120sec to try Claim after bonding period 2min- should pass");
+        //ADD DELAY to reach beyond the bonding duration - 2min
+        await new Promise(resolve => setTimeout(resolve, 120000));
+
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        console.log("Withdraw Reward transaction hash = " + response['txhash']);
+
+        rewardClaimMsg = {
+            reward_claim: {
+                receiver: marketing_wallet.key.accAddress,
+                withdrawal_amount: "53782",
+            }
+        };
+        await queryInvestmentReward(deploymentDetails);
+        console.log("Waiting for 60sec more to try Claim Native Reward after bonding period 3min- should pass");
+        console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
+        //ADD DELAY to reach beyond the bonding duration - 3min
+        await new Promise(resolve => setTimeout(resolve, 60000));
+
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        console.log("Withdraw Reward transaction hash = " + response['txhash']);
+
+    } finally {
+        console.log("Withdraw Complete");
+    }
 }
 
 async function provideNativeForRewards(deploymentDetails) {
