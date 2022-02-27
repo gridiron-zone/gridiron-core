@@ -6,16 +6,11 @@ import {
     mint_wallet,
     treasury_wallet,
     liquidity_wallet,
-    marketing_wallet
+    marketing_wallet,
+    terraClient
 } from './constants.js';
 
-import {MsgSend, LCDClient} from '@terra-money/terra.js';
-
-// To use LocalTerra
-const terra = new LCDClient({
-    URL: 'https://bombay-lcd.terra.dev',
-    chainID: 'bombay-12',
-});
+import { MsgSend } from '@terra-money/terra.js';
 
 export async function primeAccountsWithFunds() {
     var txHash = [];
@@ -34,7 +29,7 @@ function fundMintingWallet() {
         const send1 = new MsgSend(
             walletTest1.key.accAddress,
             mint_wallet.key.accAddress,
-            {uluna: 500000000, uusd: 10000000000}
+            { uluna: 500000000, uusd: 10000000000 }
         );
 
         walletTest1
@@ -42,10 +37,14 @@ function fundMintingWallet() {
                 msgs: [send1],
                 memo: 'Initial Funding!',
             })
-            .then(tx => terra.tx.broadcast(tx))
+            .then(tx => terraClient.tx.broadcast(tx))
             .then(result => {
                 console.log(result.txhash);
-                resolve(result.txhash);
+                if (result.height == 0) {
+                    resolve("Failed. Please fund the wallet externally!")
+                } else {
+                    resolve(result.txhash);
+                }
             });
     })
 }
@@ -56,7 +55,7 @@ function fundTreasuryWallet() {
         const send2 = new MsgSend(
             walletTest2.key.accAddress,
             treasury_wallet.key.accAddress,
-            {uluna: 500000000, uusd: 10000000000}
+            { uluna: 500000000, uusd: 10000000000 }
         );
 
         walletTest2
@@ -64,10 +63,14 @@ function fundTreasuryWallet() {
                 msgs: [send2],
                 memo: 'Initial Funding!',
             })
-            .then(tx => terra.tx.broadcast(tx))
+            .then(tx => terraClient.tx.broadcast(tx))
             .then(result => {
                 console.log(result.txhash);
-                resolve(result.txhash);
+                if (result.height == 0) {
+                    resolve("Failed. Please fund the wallet externally!")
+                } else {
+                    resolve(result.txhash);
+                }
             });
     })
 }
@@ -78,7 +81,7 @@ function fundLiquidityWallet() {
         const send = new MsgSend(
             walletTest3.key.accAddress,
             liquidity_wallet.key.accAddress,
-            {uluna: 500000000, uusd: 10000000000}
+            { uluna: 500000000, uusd: 10000000000 }
         );
 
         walletTest3
@@ -86,10 +89,14 @@ function fundLiquidityWallet() {
                 msgs: [send],
                 memo: 'Initial Funding!',
             })
-            .then(tx => terra.tx.broadcast(tx))
+            .then(tx => terraClient.tx.broadcast(tx))
             .then(result => {
                 console.log(result.txhash);
-                resolve(result.txhash);
+                if (result.height == 0) {
+                    resolve("Failed. Please fund the wallet externally!")
+                } else {
+                    resolve(result.txhash);
+                }
             });
     })
 }
@@ -100,7 +107,7 @@ function fundMarketingWallet() {
         const send = new MsgSend(
             walletTest4.key.accAddress,
             marketing_wallet.key.accAddress,
-            {uluna: 500000000, uusd: 10000000000}
+            { uluna: 500000000, uusd: 10000000000 }
         );
 
         walletTest4
@@ -108,10 +115,14 @@ function fundMarketingWallet() {
                 msgs: [send],
                 memo: 'Initial Funding!',
             })
-            .then(tx => terra.tx.broadcast(tx))
+            .then(tx => terraClient.tx.broadcast(tx))
             .then(result => {
                 console.log(result.txhash);
-                resolve(result.txhash);
+                if (result.height == 0) {
+                    resolve("Failed. Please fund the wallet externally!")
+                } else {
+                    resolve(result.txhash);
+                }
             });
     })
 }
