@@ -63,7 +63,7 @@ export const star_terra_ido_wallet = terraClient.wallet(mksti);
 // terra1nrsk3mdl5f6cct7v4r3ljlrfy78ay4d286autf
 
 const mklpi = new MnemonicKey({mnemonic: "kiwi bunker found artist script slim trade away sport manage manual receive obscure leader defense void bench mobile cricket naive surge pipe dream attend",});
-export const lp_incentive_wallet = terraClient.wallet(mklpi);
+export const bonded_lp_reward_wallet = terraClient.wallet(mklpi);
 // terra1xqqf9ktwhkpdfey9quwchpkhc4u4vesqaz772u
 
 const mkac = new MnemonicKey({mnemonic: "code tenant find country possible pulp cream away poet flee ugly galaxy brick mean label armor fee auction guess utility luxury clump exile occur",});

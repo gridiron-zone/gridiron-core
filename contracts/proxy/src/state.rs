@@ -41,6 +41,13 @@ pub struct Config {
     pub pool_pair_address: String,
     /// LP token contract address
     pub liquidity_token: Addr,
+
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub platform_fees: Uint128,
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub transaction_fees: Uint128,
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub swap_fees: Uint128,
 }
 // put the length bytes at the first for compatibility with legacy singleton store
 pub const CONFIG: Item<Config> = Item::new("\u{0}\u{6}config");

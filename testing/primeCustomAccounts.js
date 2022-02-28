@@ -3,10 +3,12 @@ import {
     walletTest2,
     walletTest3,
     walletTest4,
+    walletTest5,
     mint_wallet,
     treasury_wallet,
     liquidity_wallet,
     marketing_wallet,
+    bonded_lp_reward_wallet,
     terraClient
 } from './constants.js';
 
@@ -18,6 +20,7 @@ export async function primeAccountsWithFunds() {
     txHash.push(await fundTreasuryWallet());
     txHash.push(await fundLiquidityWallet());
     txHash.push(await fundMarketingWallet());
+    txHash.push(await transferNativeFund(walletTest5, bonded_lp_reward_wallet));
     console.log("leaving primeCustomAccounts");
     return txHash;
 }
@@ -111,6 +114,32 @@ function fundMarketingWallet() {
         );
 
         walletTest4
+            .createAndSignTx({
+                msgs: [send],
+                memo: 'Initial Funding!',
+            })
+            .then(tx => terraClient.tx.broadcast(tx))
+            .then(result => {
+                console.log(result.txhash);
+                if (result.height == 0) {
+                    resolve("Failed. Please fund the wallet externally!")
+                } else {
+                    resolve(result.txhash);
+                }
+            });
+    })
+}
+
+function transferNativeFund(fromWallet, toWallet) {
+    console.log(`Funding ${toWallet.key.accAddress} from ${fromWallet.key.accAddress}`);
+    return new Promise(resolve => {
+        const send = new MsgSend(
+            fromWallet.key.accAddress,
+            toWallet.key.accAddress,
+            { uluna: 500000000, uusd: 10000000000 }
+        );
+
+        fromWallet
             .createAndSignTx({
                 msgs: [send],
                 memo: 'Initial Funding!',

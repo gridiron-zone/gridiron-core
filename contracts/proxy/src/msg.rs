@@ -1,5 +1,5 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{Decimal, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Binary, Decimal, Timestamp, Uint128, Uint64};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -39,6 +39,13 @@ pub struct InstantiateMsg {
     pub swap_opening_date: Uint64,
 
     pub pool_pair_address: Option<String>,
+
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub platform_fees: Uint128,
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub transaction_fees: Uint128,
+    ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+    pub swap_fees: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -120,6 +127,9 @@ pub enum QueryMsg {
     },
     GetUstEquivalentToFury {
         fury_count: Uint128,
+    },
+    QueryPlatformFees {
+        msg: Binary,
     },
 }
 

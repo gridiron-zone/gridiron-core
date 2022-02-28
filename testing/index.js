@@ -11,6 +11,7 @@ import {
     treasury_wallet,
     liquidity_wallet,
     marketing_wallet,
+    bonded_lp_reward_wallet,
     terraTestnetClient,
     localTerraClient,
     terraClient,
@@ -191,6 +192,18 @@ async function transferFuryToTreasury(deploymentDetails) {
     console.log(`transferFuryToTreasuryMsg Response - ${response['txhash']}`);
 }
 
+async function transferFuryTokens(deploymentDetails, toAddress, amount) {
+    let transferFuryToTreasuryMsg = {
+        transfer: {
+            recipient: toAddress.key.accAddress,
+            amount: amount
+        }
+    };
+    console.log(`transferFuryToTreasuryMsg = ${JSON.stringify(transferFuryToTreasuryMsg)}`);
+    let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, transferFuryToTreasuryMsg);
+    console.log(`transferFuryToTreasuryMsg Response - ${response['txhash']}`);
+}
+
 async function transferFuryToMarketing(deploymentDetails) {
     let transferFuryToMarketingMsg = {
         transfer: {
@@ -332,7 +345,8 @@ async function instantiateProxyContract(deploymentDetails) {
             /// bonding period when only UST provided TODO 5*24*60*60
             native_bonding_period_in_sec: 3 * 60,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
-            native_investment_reward_wallet: treasury_wallet.key.accAddress,
+            //TODO: Change to Bonded Rewards Wallet == (old name)community/LP incentives Wallet
+            native_investment_reward_wallet: bonded_lp_reward_wallet.key.accAddress,
             /// The native(UST only) investment will be stored into this wallet
             native_investment_receive_wallet: treasury_wallet.key.accAddress,
 
@@ -344,6 +358,12 @@ async function instantiateProxyContract(deploymentDetails) {
 
             /// Pool pair contract address of astroport
             pool_pair_address: deploymentDetails.poolPairContractAddress,
+            ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+            platform_fees: "100",
+            ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+            transaction_fees: "30",
+            ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
+            swap_fees: "0",
         };
         console.log(JSON.stringify(proxyInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
@@ -428,6 +448,9 @@ async function performOperations(deploymentDetails) {
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     
     await transferFuryToTreasury(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    
+    await transferFuryTokens(deploymentDetails, bonded_lp_reward_wallet, "5000000000");
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     
     await provideLiquidityAuthorised(deploymentDetails);
@@ -670,7 +693,13 @@ async function providePairForReward(deploymentDetails) {
     let tax = await terraClient.utils.calculateTax(new Coin("uusd", baseUstAmount.toString()));
     console.log(`tax = ${tax}`);
     let funds = baseUstAmount + Number(tax.amount);
-    console.log(`funds = ${funds}`);
+    console.log(`funds + tax = ${funds}`);
+
+    let platformFees = await queryContract(deploymentDetails.proxyContractAddress, { query_platform_fees: { msg: Buffer.from(JSON.stringify(executeMsg)).toString('base64') } });
+    console.log(`platformFees = ${JSON.stringify(platformFees)}`);
+    funds = funds + Number(platformFees);
+    console.log(`funds + tax + platform fees = ${funds}`);
+
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
@@ -687,12 +716,15 @@ async function claimInvestmentReward(deploymentDetails) {
     //ADD DELAY small to check failure of quick withdraw - 1sec
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    let platformFees = await queryContract(deploymentDetails.proxyContractAddress, { query_platform_fees: { msg: Buffer.from(JSON.stringify(rewardClaimMsg)).toString('base64') } });
+    console.log(`platformFees = ${JSON.stringify(platformFees)}`);
+
     let response;
 
     try {
         console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
         console.log("Trying to Claim Pair Reward before Maturity");
-        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg, { 'uusd': Number(platformFees) });
         console.log("Not expected to reach here");
         console.log(`Reward Claim Response - ${response['txhash']}`);
     } catch (error) {
@@ -701,7 +733,7 @@ async function claimInvestmentReward(deploymentDetails) {
         //ADD DELAY to reach beyond the bonding duration - 2min
         await new Promise(resolve => setTimeout(resolve, 120000));
 
-        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg, { 'uusd': Number(platformFees) });
         console.log("Withdraw Reward transaction hash = " + response['txhash']);
 
         rewardClaimMsg = {
@@ -716,7 +748,7 @@ async function claimInvestmentReward(deploymentDetails) {
         //ADD DELAY to reach beyond the bonding duration - 3min
         await new Promise(resolve => setTimeout(resolve, 60000));
 
-        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg);
+        response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg, { 'uusd': Number(platformFees) });
         console.log("Withdraw Reward transaction hash = " + response['txhash']);
 
     } finally {
@@ -752,14 +784,14 @@ async function provideNativeForRewards(deploymentDetails) {
     // let totalFuryAmount = ustFuryEquivAmount;
     let incrAllowLW = parseInt(furyForBaseUst * hundredPercent / rate);
     console.log(`Increase allowance for treasury by = ${incrAllowLW}`);
-    //First increase allowance for proxy to spend from treasury wallet
+    //First increase allowance for proxy to spend from bonded_and_lp_rewards wallet
     let increaseAllowanceMsgLW = {
         increase_allowance: {
             spender: deploymentDetails.proxyContractAddress,
             amount: incrAllowLW.toString()
         }
     };
-    let incrAllowRespLW = await executeContract(treasury_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
+    let incrAllowRespLW = await executeContract(bonded_lp_reward_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsgLW);
     console.log(`Increase allowance response hash = ${incrAllowRespLW['txhash']}`);
 
     let executeMsg = {
@@ -777,7 +809,13 @@ async function provideNativeForRewards(deploymentDetails) {
     let tax = await terraClient.utils.calculateTax(new Coin("uusd", baseUstAmount.toString()));
     console.log(`tax = ${tax}`);
     let funds = baseUstAmount + Number(tax.amount);
-    console.log(`funds = ${funds}`);
+    console.log(`funds + tax = ${funds}`);
+
+    let platformFees = await queryContract(deploymentDetails.proxyContractAddress, { query_platform_fees: { msg: Buffer.from(JSON.stringify(executeMsg)).toString('base64') } });
+    console.log(`platformFees = ${JSON.stringify(platformFees)}`);
+    funds = funds + Number(platformFees);
+    console.log(`funds + tax + platform fees = ${funds}`);
+
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
     console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
 }
@@ -825,7 +863,17 @@ async function buyFuryTokens(deploymentDetails) {
             },
         }
     };
-    let buyFuryResp = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, buyFuryMsg, { 'uusd': 10010 });
+    let tax = await terraClient.utils.calculateTax(new Coin("uusd", "10000"));
+    console.log(`tax = ${tax}`);
+    let funds = 10000 + Number(tax.amount);
+    console.log(`funds + tax = ${funds}`);
+
+    let platformFees = await queryContract(deploymentDetails.proxyContractAddress, { query_platform_fees: { msg: Buffer.from(JSON.stringify(buyFuryMsg)).toString('base64') } });
+    console.log(`platformFees = ${JSON.stringify(platformFees)}`);
+    funds = funds + Number(platformFees);
+    console.log(`funds + tax + platform fees = ${funds}`);
+
+    let buyFuryResp = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, buyFuryMsg, { 'uusd': funds });
     console.log(`Buy Fury swap response tx hash = ${buyFuryResp['txhash']}`);
 }
 

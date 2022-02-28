@@ -68,6 +68,9 @@ pub fn instantiate(
             msg.pair_lp_tokens_holder.as_str(),
         )?,
         liquidity_token: Addr::unchecked(""),
+        platform_fees: msg.platform_fees,
+        transaction_fees: msg.transaction_fees,
+        swap_fees: msg.swap_fees,
     };
     if let Some(pool_pair_addr) = msg.pool_pair_address {
         cfg.pool_pair_address = pool_pair_addr;
@@ -141,13 +144,59 @@ pub fn execute(
             slippage_tolerance,
             auto_stake,
         } => {
+            let required_ust_fees: Uint128;
+            required_ust_fees = query_platform_fees(
+                deps.as_ref(),
+                to_binary(&ExecuteMsg::ProvidePairForReward {
+                    assets: assets.clone(),
+                    slippage_tolerance: slippage_tolerance.clone(),
+                    auto_stake: auto_stake.clone(),
+                })?,
+            )?;
+            let mut fees = Uint128::zero();
+            for fund in info.funds.clone() {
+                if fund.denom == "uusd" {
+                    fees = fees.checked_add(fund.amount).unwrap();
+                }
+            }
+            let mut native_tax = Uint128::zero();
+            for asset in assets.clone() {
+                if asset.is_native_token() {
+                    fees = fees.checked_sub(asset.amount).unwrap();
+                    native_tax = native_tax
+                        .checked_add(asset.compute_tax(&deps.querier)?)
+                        .unwrap();
+                }
+            }
+            fees = fees.checked_sub(native_tax).unwrap();
+            if fees < required_ust_fees {
+                return Err(ContractError::InsufficientFees {
+                    required: required_ust_fees,
+                    received: fees,
+                });
+            }
+            let mut info_to_send = info.clone();
+            if !fees.is_zero() {
+                //Received the platform fees, remove it from funds
+                let mut coin_to_set_in_funds = Coin::new(0, format!("uusd"));
+                for coin in info.funds.clone() {
+                    if coin.denom == "uusd" {
+                        coin_to_set_in_funds = Coin {
+                            amount: coin.amount - required_ust_fees,
+                            denom: coin.denom.clone(),
+                        };
+                    }
+                }
+                info_to_send.funds = vec![coin_to_set_in_funds];
+                // and transfer them to
+            }
             let config = CONFIG.load(deps.storage)?;
             let receiver: Option<String>;
             receiver = Some(config.pair_lp_tokens_holder.to_string());
             provide_liquidity(
                 deps,
                 env,
-                info,
+                info_to_send,
                 assets,
                 slippage_tolerance,
                 auto_stake,
@@ -160,6 +209,34 @@ pub fn execute(
             slippage_tolerance,
             auto_stake,
         } => {
+            if !asset.is_native_token() {
+                return Err(ContractError::Unauthorized {});
+            }
+            let required_ust_fees: Uint128;
+            required_ust_fees = query_platform_fees(
+                deps.as_ref(),
+                to_binary(&ExecuteMsg::ProvideNativeForReward {
+                    asset: asset.clone(),
+                    slippage_tolerance: slippage_tolerance.clone(),
+                    auto_stake: auto_stake.clone(),
+                })?,
+            )?;
+            let mut fees = Uint128::zero();
+            for fund in info.funds.clone() {
+                if fund.denom == "uusd" {
+                    fees = fees.checked_add(fund.amount).unwrap();
+                }
+            }
+            fees = fees.checked_sub(asset.amount).unwrap();
+            let native_tax = asset.compute_tax(&deps.querier)?;
+            fees = fees.checked_sub(native_tax).unwrap();
+            if fees < required_ust_fees {
+                return Err(ContractError::InsufficientFees {
+                    required: required_ust_fees,
+                    received: fees,
+                });
+            }
+
             let config = CONFIG.load(deps.storage)?;
             let assets = [
                 Asset {
@@ -199,6 +276,32 @@ pub fn execute(
                 return Err(ContractError::Unauthorized {});
             }
 
+            let required_ust_fees: Uint128;
+            required_ust_fees = query_platform_fees(
+                deps.as_ref(),
+                to_binary(&ExecuteMsg::Swap {
+                    offer_asset: offer_asset.clone(),
+                    belief_price: belief_price.clone(),
+                    max_spread: max_spread.clone(),
+                    to: to.clone(),
+                })?,
+            )?;
+            let mut fees = Uint128::zero();
+            for fund in info.funds.clone() {
+                if fund.denom == "uusd" {
+                    fees = fees.checked_add(fund.amount).unwrap();
+                }
+            }
+            fees = fees.checked_sub(offer_asset.amount).unwrap();
+            let native_tax = offer_asset.compute_tax(&deps.querier)?;
+            fees = fees.checked_sub(native_tax).unwrap();
+            if fees < required_ust_fees {
+                return Err(ContractError::InsufficientFees {
+                    required: required_ust_fees,
+                    received: fees,
+                });
+            }
+
             let to_addr = if let Some(to_addr) = to {
                 Some(addr_validate_to_lower(deps.api, &to_addr)?)
             } else {
@@ -218,7 +321,29 @@ pub fn execute(
         ExecuteMsg::RewardClaim {
             receiver,
             withdrawal_amount,
-        } => claim_investment_reward(deps, env, info, receiver, withdrawal_amount),
+        } => {
+            let required_ust_fees: Uint128;
+            required_ust_fees = query_platform_fees(
+                deps.as_ref(),
+                to_binary(&ExecuteMsg::RewardClaim {
+                    receiver: receiver.clone(),
+                    withdrawal_amount: withdrawal_amount.clone(),
+                })?,
+            )?;
+            let mut fees = Uint128::zero();
+            for fund in info.funds.clone() {
+                if fund.denom == "uusd" {
+                    fees = fees.checked_add(fund.amount).unwrap();
+                }
+            }
+            if fees < required_ust_fees {
+                return Err(ContractError::InsufficientFees {
+                    required: required_ust_fees,
+                    received: fees,
+                });
+            }
+            claim_investment_reward(deps, env, info, receiver, withdrawal_amount)
+        }
     }
 }
 
@@ -559,7 +684,8 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     let mut resp = Response::new();
 
     let config = CONFIG.load(deps.storage)?;
-	let mut fury_equiv_for_ust = get_fury_equivalent_to_ust(deps.as_ref(), ust_amount_provided).unwrap();
+    let mut fury_equiv_for_ust =
+        get_fury_equivalent_to_ust(deps.as_ref(), ust_amount_provided).unwrap();
     let fury_pre_discount;
     let funds_owner;
     let bonding_period;
@@ -813,9 +939,9 @@ fn claim_investment_reward(
     let mut bonds = Vec::new();
     let mut updated_bonds = Vec::new();
     let mut earliest = FAR_IN_FUTURE;
-    let mut earliestAmount = Uint128::zero();
+    let mut earliest_amount = Uint128::zero();
 
-    let mut all_bonds = BONDED_REWARDS_DETAILS.may_load(deps.storage, receiver.clone())?;
+    let all_bonds = BONDED_REWARDS_DETAILS.may_load(deps.storage, receiver.clone())?;
     match all_bonds {
         Some(some_bonds) => {
             bonds = some_bonds;
@@ -839,7 +965,7 @@ fn claim_investment_reward(
                 }
                 if _bond_timestamp.plus_seconds(bond.bonding_period).seconds() < earliest {
                     earliest = _bond_timestamp.plus_seconds(bond.bonding_period).seconds();
-                    earliestAmount = bond.bonded_amount.clone();
+                    earliest_amount = bond.bonded_amount.clone();
                 }
                 if _bond_timestamp.plus_seconds(bond.bonding_period).seconds()
                     < env.block.time.seconds()
@@ -870,7 +996,7 @@ fn claim_investment_reward(
         if earliest < FAR_IN_FUTURE {
             message = format!(
                 "Earliest Withdrawal Amount {:?} at {:?}",
-                earliestAmount, earliest
+                earliest_amount, earliest
             );
         } else {
             message = format!("No Bonded Rewards");
@@ -1118,6 +1244,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetFuryEquivalentToUst { ust_count } => {
             to_binary(&get_fury_equivalent_to_ust(deps, ust_count)?)
         }
+        QueryMsg::QueryPlatformFees { msg } => to_binary(&query_platform_fees(deps, msg)?),
     }
 }
 
@@ -1193,9 +1320,12 @@ fn get_ust_equivalent_to_fury(deps: Deps, fury_count: Uint128) -> StdResult<Uint
             ufury_count = asset.amount;
         }
     }
-    let ust_equiv_for_fury = fury_count
-        .checked_mul(uust_count)?
-        .checked_div(ufury_count)?;
+    let ust_equiv_for_fury = uust_count.checked_sub(
+        ufury_count
+            .checked_mul(uust_count)?
+            .checked_div(ufury_count.checked_add(fury_count)?)?,
+    )?;
+
     return Ok(ust_equiv_for_fury);
 }
 
@@ -1215,16 +1345,22 @@ fn get_fury_equivalent_to_ust(deps: Deps, ust_count: Uint128) -> StdResult<Uint1
             ufury_count = asset.amount;
         }
     }
-    let fury_equiv_for_ust = ust_count
-        .checked_mul(ufury_count)?
-        .checked_div(uust_count)?;
+    let fury_equiv_for_ust = ufury_count.checked_sub(
+        uust_count
+            .checked_mul(ufury_count)?
+            .checked_div(uust_count.checked_add(ust_count)?)?,
+    )?;
+    // let fury_equiv_for_ust = ust_count
+    //     .checked_mul(ufury_count)?
+    //     .checked_div(uust_count)?;
     return Ok(fury_equiv_for_ust);
 }
 
 pub fn query_platform_fees(deps: Deps, msg: Binary) -> StdResult<Uint128> {
     let config = CONFIG.load(deps.storage)?;
-    let platform_fees_percentage = Uint128::zero();
-    let fury_amount_provided;
+    let platform_fees_percentage;
+    let mut fury_amount_provided = Uint128::zero();
+    let mut ust_amount_provided = Uint128::zero();
     match from_binary(&msg) {
         Ok(ExecuteMsg::Configure {
             pool_pair_address: _,
@@ -1237,18 +1373,29 @@ pub fn query_platform_fees(deps: Deps, msg: Binary) -> StdResult<Uint128> {
             return Ok(Uint128::zero());
         }
         Ok(ExecuteMsg::ProvidePairForReward {
-            assets: _,
+            assets,
             slippage_tolerance: _,
             auto_stake: _,
         }) => {
-            return Ok(Uint128::zero());
+            platform_fees_percentage = config.platform_fees + config.transaction_fees;
+            for asset in assets {
+                if asset.info.is_native_token() {
+                    ust_amount_provided = asset.amount;
+                }
+                if !asset.info.is_native_token() {
+                    fury_amount_provided = asset.amount;
+                }
+            }
         }
         Ok(ExecuteMsg::ProvideNativeForReward {
-            asset: _,
+            asset,
             slippage_tolerance: _,
             auto_stake: _,
         }) => {
-            return Ok(Uint128::zero());
+            platform_fees_percentage = config.platform_fees + config.transaction_fees;
+            if asset.info.is_native_token() {
+                ust_amount_provided = asset.amount;
+            }
         }
         Ok(ExecuteMsg::ProvideLiquidity {
             assets: _,
@@ -1258,41 +1405,34 @@ pub fn query_platform_fees(deps: Deps, msg: Binary) -> StdResult<Uint128> {
             return Ok(Uint128::zero());
         }
         Ok(ExecuteMsg::Swap {
-            offer_asset: _,
+            offer_asset,
             belief_price: _,
             max_spread: _,
             to: _,
         }) => {
-            return Ok(Uint128::zero());
+            platform_fees_percentage =
+                config.platform_fees + config.transaction_fees + config.swap_fees;
+            if offer_asset.info.is_native_token() {
+                ust_amount_provided = offer_asset.amount;
+            }
+            if !offer_asset.info.is_native_token() {
+                fury_amount_provided = offer_asset.amount;
+            }
         }
         Ok(ExecuteMsg::RewardClaim {
             receiver: _,
             withdrawal_amount,
         }) => {
+            platform_fees_percentage = config.platform_fees + config.transaction_fees;
             fury_amount_provided = withdrawal_amount;
         }
         Err(err) => {
             return Err(StdError::generic_err(format!("{:?}", err)));
         }
     }
-    let pool_rsp: PoolResponse = deps
-        .querier
-        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
+    let ust_equiv_for_fury = get_ust_equivalent_to_fury(deps, fury_amount_provided)?;
 
-    let mut uust_count = Uint128::zero();
-    let mut ufury_count = Uint128::zero();
-    for asset in pool_rsp.assets {
-        if (asset.info.is_native_token()) {
-            uust_count = asset.amount;
-        }
-        if (!asset.info.is_native_token()) {
-            ufury_count = asset.amount;
-        }
-    }
-    let ust_equiv_for_fury = fury_amount_provided
-        .checked_mul(uust_count)?
-        .checked_div(ufury_count)?;
-    return Ok(ust_equiv_for_fury
+    return Ok((ust_equiv_for_fury.checked_add(ust_amount_provided)?)
         .checked_mul(platform_fees_percentage)?
         .checked_div(Uint128::from(HUNDRED_PERCENT))?);
 }

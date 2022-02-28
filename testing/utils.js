@@ -4,7 +4,8 @@ import {isTxError} from "@terra-money/terra.js/dist/client/lcd/api/TxAPI.js";
 import {
   MsgExecuteContract,
   MsgInstantiateContract,
-  MsgStoreCode
+  MsgStoreCode,
+  MsgMigrateContract
 } from "@terra-money/terra.js/dist/core/wasm/msgs/index.js";
 import {terraClient,} from "./constants.js";
 
@@ -129,4 +130,14 @@ export async function get_server_epoch_seconds() {
   let dateObject = new Date(time);
   let epoch = dateObject.getTime();
   return Math.round(epoch / 1000)
+}
+
+/**
+ * Migration
+ * */
+ export async function migrateContract(senderWallet, contractAddress, new_code_id, migrate_msg, verbose = false) {
+  let msg_list = [
+    new MsgMigrateContract(senderWallet.key.accAddress, contractAddress, new_code_id, migrate_msg),
+  ]
+  return await sendTransaction(senderWallet, msg_list, verbose);
 }
