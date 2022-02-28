@@ -557,24 +557,9 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     }
 
     let mut resp = Response::new();
+
     let config = CONFIG.load(deps.storage)?;
-    let pool_rsp: PoolResponse = deps
-        .querier
-        .query_wasm_smart(config.pool_pair_address, &Pool {})?;
-    let mut fury_equiv_for_ust;
-    if pool_rsp.assets[0].info.is_native_token() {
-        fury_equiv_for_ust = ust_amount_provided
-            .checked_mul(pool_rsp.assets[1].amount)
-            .unwrap_or_default()
-            .checked_div(pool_rsp.assets[0].amount)
-            .unwrap_or_default();
-    } else {
-        fury_equiv_for_ust = ust_amount_provided
-            .checked_mul(pool_rsp.assets[0].amount)
-            .unwrap_or_default()
-            .checked_div(pool_rsp.assets[1].amount)
-            .unwrap_or_default();
-    }
+	let mut fury_equiv_for_ust = get_fury_equivalent_to_ust(deps.as_ref(), ust_amount_provided).unwrap();
     let fury_pre_discount;
     let funds_owner;
     let bonding_period;
