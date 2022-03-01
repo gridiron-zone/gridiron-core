@@ -42,6 +42,7 @@ pub struct Config {
     /// LP token contract address
     pub liquidity_token: Addr,
 
+    pub platform_fees_collector_wallet: Addr,
     ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
     pub platform_fees: Uint128,
     ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1

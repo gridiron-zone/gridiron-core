@@ -40,6 +40,7 @@ pub struct InstantiateMsg {
 
     pub pool_pair_address: Option<String>,
 
+    pub platform_fees_collector_wallet: String,
     ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
     pub platform_fees: Uint128,
     ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
@@ -147,11 +148,11 @@ pub enum ProxyCw20HookMsg {
     //     receiver: Option<String>,
     // },
     /// Sell a given amount of asset
-    Swap {
-        belief_price: Option<Decimal>,
-        max_spread: Option<Decimal>,
-        to: Option<String>,
-    },
+    // Swap {
+    //     belief_price: Option<Decimal>,
+    //     max_spread: Option<Decimal>,
+    //     to: Option<String>,
+    // },
     /// Withdrawing liquidity from the pool
     WithdrawLiquidity {},
 }

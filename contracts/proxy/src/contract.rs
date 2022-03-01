@@ -68,6 +68,10 @@ pub fn instantiate(
             msg.pair_lp_tokens_holder.as_str(),
         )?,
         liquidity_token: Addr::unchecked(""),
+        platform_fees_collector_wallet: addr_validate_to_lower(
+            deps.api,
+            msg.platform_fees_collector_wallet.as_str(),
+        )?,
         platform_fees: msg.platform_fees,
         transaction_fees: msg.transaction_fees,
         swap_fees: msg.swap_fees,
@@ -137,6 +141,7 @@ pub fn execute(
                 auto_stake,
                 receiver,
                 SubMessageNextAction::IncreaseAllowance,
+                None,
             )
         }
         ExecuteMsg::ProvidePairForReward {
@@ -176,6 +181,7 @@ pub fn execute(
                 });
             }
             let mut info_to_send = info.clone();
+            let mut platform_fee_funds = Coin::new(0, format!("uusd"));
             if !fees.is_zero() {
                 //Received the platform fees, remove it from funds
                 let mut coin_to_set_in_funds = Coin::new(0, format!("uusd"));
@@ -183,6 +189,10 @@ pub fn execute(
                     if coin.denom == "uusd" {
                         coin_to_set_in_funds = Coin {
                             amount: coin.amount - required_ust_fees,
+                            denom: coin.denom.clone(),
+                        };
+                        platform_fee_funds = Coin {
+                            amount: required_ust_fees,
                             denom: coin.denom.clone(),
                         };
                     }
@@ -202,6 +212,7 @@ pub fn execute(
                 auto_stake,
                 receiver,
                 SubMessageNextAction::TransferCustomAssetsFromFundsOwner,
+                Some(platform_fee_funds),
             )
         }
         ExecuteMsg::ProvideNativeForReward {
@@ -212,58 +223,7 @@ pub fn execute(
             if !asset.is_native_token() {
                 return Err(ContractError::Unauthorized {});
             }
-            let required_ust_fees: Uint128;
-            required_ust_fees = query_platform_fees(
-                deps.as_ref(),
-                to_binary(&ExecuteMsg::ProvideNativeForReward {
-                    asset: asset.clone(),
-                    slippage_tolerance: slippage_tolerance.clone(),
-                    auto_stake: auto_stake.clone(),
-                })?,
-            )?;
-            let mut fees = Uint128::zero();
-            for fund in info.funds.clone() {
-                if fund.denom == "uusd" {
-                    fees = fees.checked_add(fund.amount).unwrap();
-                }
-            }
-            fees = fees.checked_sub(asset.amount).unwrap();
-            let native_tax = asset.compute_tax(&deps.querier)?;
-            fees = fees.checked_sub(native_tax).unwrap();
-            if fees < required_ust_fees {
-                return Err(ContractError::InsufficientFees {
-                    required: required_ust_fees,
-                    received: fees,
-                });
-            }
-
-            let config = CONFIG.load(deps.storage)?;
-            let assets = [
-                Asset {
-                    info: AssetInfo::NativeToken {
-                        denom: "uusd".to_string(),
-                    },
-                    amount: asset.amount,
-                },
-                Asset {
-                    info: AssetInfo::Token {
-                        contract_addr: config.custom_token_address,
-                    },
-                    amount: Uint128::from(0u128),
-                },
-            ];
-
-            let receiver: Option<String>;
-            receiver = Some(config.native_investment_receive_wallet.to_string());
-            provide_native_liquidity(
-                deps,
-                env,
-                info,
-                assets,
-                slippage_tolerance,
-                auto_stake,
-                receiver,
-            )
+            provide_native_liquidity(deps, env, info, asset, slippage_tolerance, auto_stake)
         }
         ExecuteMsg::Swap {
             offer_asset,
@@ -272,35 +232,6 @@ pub fn execute(
             to,
         } => {
             offer_asset.info.check(deps.api)?;
-            if !offer_asset.is_native_token() {
-                return Err(ContractError::Unauthorized {});
-            }
-
-            let required_ust_fees: Uint128;
-            required_ust_fees = query_platform_fees(
-                deps.as_ref(),
-                to_binary(&ExecuteMsg::Swap {
-                    offer_asset: offer_asset.clone(),
-                    belief_price: belief_price.clone(),
-                    max_spread: max_spread.clone(),
-                    to: to.clone(),
-                })?,
-            )?;
-            let mut fees = Uint128::zero();
-            for fund in info.funds.clone() {
-                if fund.denom == "uusd" {
-                    fees = fees.checked_add(fund.amount).unwrap();
-                }
-            }
-            fees = fees.checked_sub(offer_asset.amount).unwrap();
-            let native_tax = offer_asset.compute_tax(&deps.querier)?;
-            fees = fees.checked_sub(native_tax).unwrap();
-            if fees < required_ust_fees {
-                return Err(ContractError::InsufficientFees {
-                    required: required_ust_fees,
-                    received: fees,
-                });
-            }
 
             let to_addr = if let Some(to_addr) = to {
                 Some(addr_validate_to_lower(deps.api, &to_addr)?)
@@ -321,29 +252,7 @@ pub fn execute(
         ExecuteMsg::RewardClaim {
             receiver,
             withdrawal_amount,
-        } => {
-            let required_ust_fees: Uint128;
-            required_ust_fees = query_platform_fees(
-                deps.as_ref(),
-                to_binary(&ExecuteMsg::RewardClaim {
-                    receiver: receiver.clone(),
-                    withdrawal_amount: withdrawal_amount.clone(),
-                })?,
-            )?;
-            let mut fees = Uint128::zero();
-            for fund in info.funds.clone() {
-                if fund.denom == "uusd" {
-                    fees = fees.checked_add(fund.amount).unwrap();
-                }
-            }
-            if fees < required_ust_fees {
-                return Err(ContractError::InsufficientFees {
-                    required: required_ust_fees,
-                    received: fees,
-                });
-            }
-            claim_investment_reward(deps, env, info, receiver, withdrawal_amount)
-        }
+        } => claim_investment_reward(deps, env, info, receiver, withdrawal_amount),
     }
 }
 
@@ -399,23 +308,23 @@ fn process_received_message(
     //     ))));
     // }
     match from_binary(&received_message.msg) {
-        Ok(ProxyCw20HookMsg::Swap {
-            belief_price,
-            max_spread,
-            to,
-        }) => {
-            let to_address: Option<String>;
-            match to {
-                Some(to_addr) => to_address = Some(to_addr),
-                None => to_address = Some(received_message.sender),
-            }
-            let swap_msg_to_send = ProxyCw20HookMsg::Swap {
-                belief_price: belief_price,
-                max_spread: max_spread,
-                to: to_address,
-            };
-            forward_swap_to_astro(deps, info, swap_msg_to_send, received_message.amount)
-        }
+        // Ok(ProxyCw20HookMsg::Swap {
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // }) => {
+        //     let to_address: Option<String>;
+        //     match to {
+        //         Some(to_addr) => to_address = Some(to_addr),
+        //         None => to_address = Some(received_message.sender),
+        //     }
+        //     let swap_msg_to_send = ProxyCw20HookMsg::Swap {
+        //         belief_price: belief_price,
+        //         max_spread: max_spread,
+        //         to: to_address,
+        //     };
+        //     forward_swap_to_astro(deps, info, swap_msg_to_send, received_message.amount)
+        // }
         Ok(ProxyCw20HookMsg::WithdrawLiquidity {}) => {
             withdraw_liquidity(deps, env, info, received_message)
         }
@@ -563,39 +472,62 @@ pub fn forward_provide_liquidity_to_astro(
 
 pub fn forward_swap_to_astro(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
-    received_message: ProxyCw20HookMsg,
+    received_message: Cw20HookMsg,
     amount: Uint128,
+    funds_to_send: Vec<Coin>,
+    platform_fees: Coin,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
-    if info.sender != config.custom_token_address {
-        return Err(ContractError::Unauthorized {});
-    }
     let send_msg = Cw20ExecuteMsg::Send {
         contract: config.pool_pair_address,
         amount: amount,
         msg: to_binary(&received_message)?,
     };
     let exec = WasmMsg::Execute {
-        contract_addr: config.custom_token_address.into_string(),
+        contract_addr: config.custom_token_address.clone().into_string(),
         msg: to_binary(&send_msg).unwrap(),
-        funds: info.funds,
+        funds: funds_to_send,
     };
-    let mut send: SubMsg = SubMsg::new(exec);
-    let mut sub_req_id = 1;
-    if let Some(mut req_id) = SUB_REQ_ID.may_load(deps.storage)? {
-        req_id += 1;
-        SUB_REQ_ID.save(deps.storage, &req_id)?;
-        sub_req_id = req_id;
-    } else {
-        SUB_REQ_ID.save(deps.storage, &sub_req_id)?;
-    }
+    // let mut send: SubMsg = SubMsg::new(exec);
+    // let mut sub_req_id = 1;
+    // if let Some(mut req_id) = SUB_REQ_ID.may_load(deps.storage)? {
+    //     req_id += 1;
+    //     SUB_REQ_ID.save(deps.storage, &req_id)?;
+    //     sub_req_id = req_id;
+    // } else {
+    //     SUB_REQ_ID.save(deps.storage, &sub_req_id)?;
+    // }
 
-    send.id = sub_req_id;
-    send.reply_on = ReplyOn::Always;
+    // send.id = sub_req_id;
+    // send.reply_on = ReplyOn::Always;
 
     let mut resp = Response::new();
-    resp = resp.add_submessage(send);
+    // Add message to transfer fury tokens
+    resp = resp.add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: config.custom_token_address.into_string(),
+        msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+            owner: info.sender.to_string(),
+            recipient: env.contract.address.to_string(),
+            amount: amount,
+        })?,
+        funds: vec![],
+    }));
+    // resp = resp.add_submessage(send);
+    resp = resp.add_message(CosmosMsg::Wasm(exec));
+    //Add bank message to transfer platform fees to platform fee collector wallet
+    let pf_asset = Asset {
+        info: AssetInfo::NativeToken {
+            denom: String::from("uusd"),
+        },
+        amount: platform_fees.amount,
+    };
+    let taxed_platform_fees = pf_asset.deduct_tax(&deps.querier)?;
+    resp = resp.add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: config.platform_fees_collector_wallet.into_string(),
+        amount: vec![taxed_platform_fees],
+    }));
     Ok(resp.add_attribute("action", "Forwarding swap message to pool pair address"))
 }
 
@@ -603,11 +535,70 @@ pub fn provide_native_liquidity(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    assets: [Asset; 2],
+    asset: Asset,
     slippage_tolerance: Option<Decimal>,
     auto_stake: Option<bool>,
-    receiver: Option<String>,
 ) -> Result<Response, ContractError> {
+    //Check if assets provided are native tokens
+    asset.info.check(deps.api)?;
+    //First check if platform fees are provided
+    let required_ust_fees: Uint128;
+    required_ust_fees = query_platform_fees(
+        deps.as_ref(),
+        to_binary(&ExecuteMsg::ProvideNativeForReward {
+            asset: asset.clone(),
+            slippage_tolerance: slippage_tolerance.clone(),
+            auto_stake: auto_stake.clone(),
+        })?,
+    )?;
+    let mut fees = Uint128::zero();
+    for fund in info.funds.clone() {
+        if fund.denom == "uusd" {
+            fees = fees.checked_add(fund.amount).unwrap();
+        }
+    }
+    let native_tax = asset.compute_tax(&deps.querier)?;
+    //Remove platform fees from funds
+    let funds_to_pass = fees.checked_sub(required_ust_fees).unwrap();
+    fees = fees.checked_sub(asset.amount).unwrap();
+    fees = fees.checked_sub(native_tax).unwrap();
+    if fees < required_ust_fees {
+        return Err(ContractError::InsufficientFees {
+            required: required_ust_fees,
+            received: fees,
+        });
+    }
+    // Platform fees received is good, now proceed
+    //transfer it to platform_fees_collector_wallet
+    let mut funds_to_send = vec![Coin::new(funds_to_pass.u128(), String::from("uusd"))];
+    let platform_fees = Coin::new(required_ust_fees.u128(), format!("uusd"));
+
+    if let AssetInfo::NativeToken { denom, .. } = &asset.info {
+        funds_to_send = vec![Coin {
+            denom: denom.to_string(),
+            amount: asset.amount,
+        }];
+    }
+
+    let config = CONFIG.load(deps.storage)?;
+    let assets = [
+        Asset {
+            info: AssetInfo::NativeToken {
+                denom: "uusd".to_string(),
+            },
+            amount: asset.amount,
+        },
+        Asset {
+            info: AssetInfo::Token {
+                contract_addr: config.custom_token_address,
+            },
+            amount: Uint128::from(0u128),
+        },
+    ];
+
+    let receiver: Option<String>;
+    receiver = Some(config.native_investment_receive_wallet.to_string());
+
     let user_address = info.sender.into_string();
     transfer_custom_assets_from_funds_owner_to_proxy(
         deps,
@@ -616,9 +607,10 @@ pub fn provide_native_liquidity(
         slippage_tolerance,
         auto_stake,
         receiver,
-        info.funds,
+        funds_to_send,
         user_address,
         NO_FURY_PROVIDED,
+        Some(platform_fees),
     )
 }
 
@@ -662,6 +654,7 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
     funds: Vec<Coin>,
     user_address: String,
     is_fury_provided: bool,
+    platform_fees: Option<Coin>,
 ) -> Result<Response, ContractError> {
     let mut fury_amount_provided = Uint128::zero();
     let mut ust_amount_provided = Uint128::zero();
@@ -797,6 +790,23 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
             },
         )?;
     }
+    match platform_fees {
+        Some(pf) => {
+            let pf_asset = Asset {
+                info: AssetInfo::NativeToken {
+                    denom: String::from("uusd"),
+                },
+                amount: pf.amount,
+            };
+            let taxed_platform_fees = pf_asset.deduct_tax(&deps.querier)?;
+            resp = resp.add_message(CosmosMsg::Bank(BankMsg::Send {
+                to_address: config.platform_fees_collector_wallet.into_string(),
+                amount: vec![taxed_platform_fees],
+            }));
+        }
+        None => {}
+    };
+
     Ok(resp.add_attribute(
         "action",
         "Transferring fury from treasury funds owner to proxy",
@@ -812,6 +822,7 @@ pub fn provide_liquidity(
     auto_stake: Option<bool>,
     receiver: Option<String>,
     next_action: SubMessageNextAction,
+    platform_fee_funds: Option<Coin>,
 ) -> Result<Response, ContractError> {
     let mut resp = Response::new();
     let config: Config = CONFIG.load(deps.storage)?;
@@ -854,7 +865,6 @@ pub fn provide_liquidity(
         auto_stake: auto_stake,
         receiver: receiver,
     };
-
     // Save the submessage_payload
     SUB_MESSAGE_DETAILS.save(
         deps.storage,
@@ -869,7 +879,21 @@ pub fn provide_liquidity(
             is_fury_provided: FURY_PROVIDED,
         },
     )?;
-
+    if let Some(platform_fees) = platform_fee_funds {
+        if platform_fees.amount > Uint128::zero() {
+            let pf_asset = Asset {
+                info: AssetInfo::NativeToken {
+                    denom: String::from("uusd"),
+                },
+                amount: platform_fees.amount,
+            };
+            let taxed_platform_fees = pf_asset.deduct_tax(&deps.querier)?;
+            resp = resp.add_message(CosmosMsg::Bank(BankMsg::Send {
+                to_address: config.platform_fees_collector_wallet.into_string(),
+                amount: vec![taxed_platform_fees],
+            }));
+        }
+    }
     Ok(resp.add_attribute("action", "Transferring tokens for Provide Liquidity"))
 }
 
@@ -895,18 +919,13 @@ pub fn withdraw_liquidity(
         funds: info.funds,
     };
 
-    let mut send: SubMsg = SubMsg::new(exec);
-    let mut resp = Response::new();
+    let send: SubMsg = SubMsg::new(exec);
+    let resp = Response::new();
     let data_msg = format!("Withdraw {:?}", wl_msg).into_bytes();
     Ok(resp
         .add_submessage(send)
         .add_attribute("action", "Forwarding withdraw message to lptoken address")
         .set_data(data_msg))
-
-    // Err(ContractError::Std(StdError::generic_err(format!(
-    //     "Nitin was here in sender = {:?} amount = {:?}",
-    //     sender, amount
-    // ))))
 }
 
 fn claim_investment_reward(
@@ -916,6 +935,28 @@ fn claim_investment_reward(
     receiver: String,
     withdrawal_amount: Uint128,
 ) -> Result<Response, ContractError> {
+    //Check if platform fees provided is sufficient
+    let required_ust_fees: Uint128;
+    required_ust_fees = query_platform_fees(
+        deps.as_ref(),
+        to_binary(&ExecuteMsg::RewardClaim {
+            receiver: receiver.clone(),
+            withdrawal_amount: withdrawal_amount.clone(),
+        })?,
+    )?;
+    let mut fees = Uint128::zero();
+    for fund in info.funds.clone() {
+        if fund.denom == "uusd" {
+            fees = fees.checked_add(fund.amount).unwrap();
+        }
+    }
+    if fees < required_ust_fees {
+        return Err(ContractError::InsufficientFees {
+            required: required_ust_fees,
+            received: fees,
+        });
+    }
+
     let config = CONFIG.load(deps.storage)?;
     let receiver_addr = deps.api.addr_validate(&receiver)?;
     //Check if withdrawer is same as invoker
@@ -931,7 +972,7 @@ fn claim_investment_reward(
 
     let FAR_IN_FUTURE = env.block.time.plus_seconds(2000 * 24 * 60 * 60).seconds();
 
-    let mut action = "claim_investment_reward".to_string();
+    let action = "claim_investment_reward".to_string();
     let mut unbonded_amount = Uint128::zero();
     let mut amount_remaining = withdrawal_amount.clone();
 
@@ -1014,7 +1055,22 @@ fn claim_investment_reward(
     BONDED_REWARDS_DETAILS.save(deps.storage, receiver.clone(), &updated_bonds)?;
 
     let mut rsp = Response::new();
-
+    //Send the platform fees to platform fee collector wallet
+    let mut funds_to_send = vec![];
+    for fund in info.funds {
+        let pf_asset = Asset {
+            info: AssetInfo::NativeToken {
+                denom: String::from("uusd"),
+            },
+            amount: fund.amount,
+        };
+        let taxed_platform_fees = pf_asset.deduct_tax(&deps.querier)?;
+        funds_to_send.push(taxed_platform_fees);
+    }
+    rsp = rsp.add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: config.platform_fees_collector_wallet.into_string(),
+        amount: funds_to_send,
+    }));
     let transfer_msg = Cw20ExecuteMsg::Transfer {
         recipient: receiver,
         amount: withdrawal_amount,
@@ -1059,14 +1115,45 @@ pub fn swap(
         ))));
     }
     // Swap is enabled so proceed
+    // Check if platform fees is provided
+    let required_ust_fees: Uint128;
+    required_ust_fees = query_platform_fees(
+        deps.as_ref(),
+        to_binary(&ExecuteMsg::Swap {
+            offer_asset: offer_asset.clone(),
+            belief_price: belief_price.clone(),
+            max_spread: max_spread.clone(),
+            to: Some(to.clone().unwrap().into_string()),
+        })?,
+    )?;
+    let mut fees = Uint128::zero();
+    for fund in info.funds.clone() {
+        if fund.denom == "uusd" {
+            fees = fees.checked_add(fund.amount).unwrap();
+        }
+    }
+    if offer_asset.is_native_token() {
+        fees = fees.checked_sub(offer_asset.amount).unwrap();
+    }
+    let native_tax = offer_asset.compute_tax(&deps.querier)?;
+    fees = fees.checked_sub(native_tax).unwrap();
+    if fees < required_ust_fees {
+        return Err(ContractError::InsufficientFees {
+            required: required_ust_fees,
+            received: fees,
+        });
+    }
+    //Platform fees provided is good
+    //If offer asset is custom token (sell fury),
+    // transfer the asset amount of fury tokens to this contract
     let to_address: Option<String>;
     match to {
         Some(to_addr) => to_address = Some(to_addr.into_string()),
         None => to_address = Some(info.sender.clone().into_string()),
     }
+    //Remove platform fees from funds and transfer it to platform_fees_collector_wallet
     let mut funds_to_send = vec![];
-    //Check if assets provided are native tokens
-    offer_asset.info.check(deps.api)?;
+    let platform_fees = Coin::new(required_ust_fees.u128(), String::from("uusd"));
     if offer_asset.is_native_token() {
         if let AssetInfo::NativeToken { denom, .. } = &offer_asset.info {
             funds_to_send = vec![Coin {
@@ -1075,6 +1162,23 @@ pub fn swap(
             }];
         }
     }
+    if !offer_asset.is_native_token() {
+        return forward_swap_to_astro(
+            deps,
+            env,
+            info,
+            Cw20HookMsg::Swap {
+                belief_price: belief_price,
+                max_spread: max_spread,
+                to: to_address,
+            },
+            offer_asset.amount,
+            funds_to_send,
+            platform_fees,
+        );
+    }
+    //Check if assets provided are native tokens
+    offer_asset.info.check(deps.api)?;
     let swap_msg = PairExecuteMsg::Swap {
         offer_asset: offer_asset,
         belief_price: belief_price,
@@ -1101,6 +1205,16 @@ pub fn swap(
     let mut resp = Response::new();
     resp = resp.add_submessage(send);
     let data_msg = format!("Swapping {:?}", swap_msg).into_bytes();
+
+    //Add bank message to transfer platform fees to platform fee collector wallet
+    let pf_asset = Asset{info:AssetInfo::NativeToken{denom: String::from("uusd")}, amount: platform_fees.amount};
+    let taxed_platform_fees = pf_asset.deduct_tax(&deps.querier)?;
+
+    resp = resp.add_message(CosmosMsg::Bank(BankMsg::Send {
+        to_address: config.platform_fees_collector_wallet.into_string(),
+        amount: vec![taxed_platform_fees],
+    }));
+
     Ok(resp
         .add_attribute("action", "Sending swap message")
         .set_data(data_msg))
@@ -1159,6 +1273,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                                         smd.funds,
                                         smd.user_address,
                                         smd.is_fury_provided,
+                                        None,
                                     );
                                 } else if smd.next_action == SubMessageNextAction::TransferToNativeInvestmentReceiveWallet{
                                     return transfer_native_assets_to_native_investment_receive_wallet(
@@ -1432,7 +1547,16 @@ pub fn query_platform_fees(deps: Deps, msg: Binary) -> StdResult<Uint128> {
     }
     let ust_equiv_for_fury = get_ust_equivalent_to_fury(deps, fury_amount_provided)?;
 
-    return Ok((ust_equiv_for_fury.checked_add(ust_amount_provided)?)
+    let platform_fee = (ust_equiv_for_fury.checked_add(ust_amount_provided)?)
         .checked_mul(platform_fees_percentage)?
-        .checked_div(Uint128::from(HUNDRED_PERCENT))?);
+        .checked_div(Uint128::from(HUNDRED_PERCENT))?;
+    let pf_asset = Asset {
+        info: AssetInfo::NativeToken {
+            denom: String::from("uusd"),
+        },
+        amount: platform_fee,
+    };
+
+    let tax_on_pf = pf_asset.compute_tax(&deps.querier)?;
+    return Ok(platform_fee.checked_add(tax_on_pf)?);
 }

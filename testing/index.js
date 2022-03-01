@@ -358,6 +358,8 @@ async function instantiateProxyContract(deploymentDetails) {
 
             /// Pool pair contract address of astroport
             pool_pair_address: deploymentDetails.poolPairContractAddress,
+
+            platform_fees_collector_wallet: mint_wallet.key.accAddress,
             ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
             platform_fees: "100",
             ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
@@ -446,22 +448,22 @@ async function performOperations(deploymentDetails) {
 
     await checkLPTokenBalances(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await transferFuryToTreasury(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await transferFuryTokens(deploymentDetails, bonded_lp_reward_wallet, "5000000000");
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await provideLiquidityAuthorised(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await checkLPTokenBalances(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await queryPool(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
-    
+
     await performSimulation(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
 
@@ -701,14 +703,20 @@ async function providePairForReward(deploymentDetails) {
     console.log(`funds + tax + platform fees = ${funds}`);
 
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
-    console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
+    console.log(`Provide Pair for Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
 async function claimInvestmentReward(deploymentDetails) {
+    let qRes = await queryContract(deploymentDetails.proxyContractAddress, {
+        get_bonding_details: {
+            user_address: marketing_wallet.key.accAddress
+        }
+    });
+
     let rewardClaimMsg = {
         reward_claim: {
             receiver: marketing_wallet.key.accAddress,
-            withdrawal_amount: "105301",
+            withdrawal_amount: "105298",
         }
     };
 
@@ -739,13 +747,13 @@ async function claimInvestmentReward(deploymentDetails) {
         rewardClaimMsg = {
             reward_claim: {
                 receiver: marketing_wallet.key.accAddress,
-                withdrawal_amount: "53782",
+                withdrawal_amount: "53781",
             }
         };
         await queryInvestmentReward(deploymentDetails);
         console.log("Waiting for 60sec more to try Claim Native Reward after bonding period 3min- should pass");
         console.log(`rewardClaimMsg = ${JSON.stringify(rewardClaimMsg)}`);
-        //ADD DELAY to reach beyond the bonding duration - 3min
+        //ADD DELAY small to check failure of quick withdraw - 60sec
         await new Promise(resolve => setTimeout(resolve, 60000));
 
         response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, rewardClaimMsg, { 'uusd': Number(platformFees) });
@@ -817,7 +825,7 @@ async function provideNativeForRewards(deploymentDetails) {
     console.log(`funds + tax + platform fees = ${funds}`);
 
     let response = await executeContract(marketing_wallet, deploymentDetails.proxyContractAddress, executeMsg, { 'uusd': funds });
-    console.log(`Provide Liquidity (from marketing) Response - ${response['txhash']}`);
+    console.log(`Provide Native for Liquidity (from marketing) Response - ${response['txhash']}`);
 }
 
 async function queryPool(deploymentDetails) {
@@ -888,7 +896,15 @@ async function getUSTEquivalentToFury(deploymentDetails) {
 }
 
 async function sellFuryTokens(deploymentDetails) {
-    let swapMsg = {
+    let increaseAllowanceMsg = {
+        increase_allowance: {
+            spender: deploymentDetails.proxyContractAddress,
+            amount: "1000000"
+        }
+    };
+    let incrAllowResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    console.log("increase allowance resp tx = " + incrAllowResp['txhash']);
+    let sellFuryMsg = {
         swap: {
             to: mint_wallet.key.accAddress,
             offer_asset: {
@@ -901,17 +917,12 @@ async function sellFuryTokens(deploymentDetails) {
             }
         }
     };
-    let base64Msg = Buffer.from(JSON.stringify(swapMsg)).toString('base64');
-    console.log(`Sell Fury swap base64 msg = ${base64Msg}`);
+    let platformFees = await queryContract(deploymentDetails.proxyContractAddress, { query_platform_fees: { msg: Buffer.from(JSON.stringify(sellFuryMsg)).toString('base64') } });
+    console.log(`platformFees = ${JSON.stringify(platformFees)}`);
+    let funds = Number(platformFees);
+    console.log(`funds + platform fees = ${funds}`);
 
-    let sendMsg = {
-        send: {
-            contract: deploymentDetails.proxyContractAddress,
-            amount: "1000000",
-            msg: base64Msg
-        }
-    };
-    let sellFuryResp = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, sendMsg);
+    let sellFuryResp = await executeContract(mint_wallet, deploymentDetails.proxyContractAddress, sellFuryMsg, { 'uusd': funds });
     console.log(`Sell Fury swap response tx hash = ${sellFuryResp['txhash']}`);
 }
 
