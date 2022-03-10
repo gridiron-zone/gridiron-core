@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import {LCDClient, LocalTerra} from "@terra-money/terra.js";
 import {get_server_epoch_seconds} from "./utils.js";
 import {MnemonicKey} from '@terra-money/terra.js';
@@ -21,6 +23,7 @@ localTerraClient.chainID = "localterra";
 console.log("terraTestnetClient.chainID = " + terraTestnetClient.chainID);
 console.log("localTerraClient.chainID = " + localTerraClient.chainID);
 export const terraClient = (process.env.TERRA_CLIENT === "localTerra") ? localTerraClient : terraTestnetClient;
+//export const terraClient = localTerraClient;
 console.log("terraClient.chainID = " + terraClient.chainID);
 // export const mint_wallet = "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k";
 // export const gamifiedairdrop = "terra1m46vy0jk9wck6r9mg2n8jnxw0y4g4xgl3csh9h";
@@ -37,6 +40,8 @@ export const treasury_wallet = terraClient.wallet(mk2);
 const mk3 = new MnemonicKey({mnemonic: "priority rough worth change shop adapt ritual trap palm trust worth hidden shaft speak common parent armor fantasy artist retreat derive jeans remove glove",});
 export const liquidity_wallet = terraClient.wallet(mk3);
 
+const mk4 = new MnemonicKey({mnemonic: "kiwi bunker found artist script slim trade away sport manage manual receive obscure leader defense void bench mobile cricket naive surge pipe dream attend",});
+export const bonding_wallet = terraClient.wallet(mk4);
 
 // Accounts
 export const deployer = mint_wallet; // used as operator on all contracts
