@@ -79,7 +79,7 @@ const priceLiquidityAdjustment = async (deploymentDetails, wallet, checkOnly) =>
         uusd_amount = Math.trunc((Math.sqrt(targer_price/furyPrice) - 1)*uusd_pool);
         goAheadMsg = "Need to Swap UST to Fury to increase price, Swap UST amount : "+uusd_amount.toString();
     } else {
-        fury_amount = Math.trunc((Math.squareRoot(furyPrice/targer_price) - 1)*fury_pool);
+        fury_amount = Math.trunc((Math.sqrt(furyPrice/targer_price) - 1)*fury_pool);
         goAheadMsg = "Need to Swap Fury to UST to decrease price, Swap Fury amount : "+fury_amount.toString();
     }
     if (checkOnly)     {
