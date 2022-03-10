@@ -124,6 +124,10 @@ export async function queryContract(contractAddress, query) {
   return await terraClient.wasm.contractQuery(contractAddress, query)
 }
 
+export async function queryBank(address) {
+  return await terraClient.bank.balance(address)
+}
+
 export async function get_server_epoch_seconds() {
   const blockInfo = await terraClient.tendermint.blockInfo()
   const time = blockInfo['block']['header']['time']
