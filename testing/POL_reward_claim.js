@@ -48,13 +48,13 @@ const main = async () => {
     try {
         console.log(`Wallet to be used marketing_wallet ${marketing_wallet.key.accAddress}`);
         let deploymentDetails = readArtifact(terraClient.chainID);
-        await providePairInvestment(deploymentDetails,marketing_wallet,false);
+        await providePairInvestment(deploymentDetails,marketing_wallet);
     } catch (error) {
         console.log(error);
     }
     rl.close()
 }
-const providePairInvestment = async (deploymentDetails, wallet, checkOnly) => {
+const providePairInvestment = async (deploymentDetails, wallet) => {
     let now = new Date();
     console.log(`Time Now ${now}`);
     let qRes = await queryContract(deploymentDetails.proxyContractAddress, {

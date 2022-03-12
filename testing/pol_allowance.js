@@ -45,15 +45,15 @@ const question = promisify(rl.question).bind(rl);
 const main = async () => {
     try {
         let deploymentDetails = readArtifact(terraClient.chainID);
-        await increasePOLRewardAllowance(deploymentDetails,liquidity_wallet,false);
-        await increasePOLRewardAllowance(deploymentDetails,bonding_wallet,false);
+        await increasePOLRewardAllowance(deploymentDetails,liquidity_wallet);
+        await increasePOLRewardAllowance(deploymentDetails,bonding_wallet);
     } catch (error) {
         console.log(error);
     }
     rl.close()
 }
 
-const increasePOLRewardAllowance = async (deploymentDetails,wallet,checkOnly) => {
+const increasePOLRewardAllowance = async (deploymentDetails,wallet) => {
     let response = await queryContract(deploymentDetails.furyContractAddress, {
         balance: {address: wallet.key.accAddress}
     });
@@ -64,7 +64,13 @@ const increasePOLRewardAllowance = async (deploymentDetails,wallet,checkOnly) =>
     });
     let respAllowance = Number(response.allowance);
     console.log(`native : existing balance ${respBalance}, existing allowance ${respAllowance}, increase allowance by ${respBalance - respAllowance}`);
-    if (respBalance > respAllowance && !checkOnly) {
+    if (respBalance > respAllowance) {
+        let goAheadResponse = await question(`Confirm increase of allowance ? `); 
+        if (goAheadResponse === 'Y' || goAheadResponse === 'y') {
+            console.log('trying');
+        } else {
+            return
+        }
         let increase_amount = respBalance - respAllowance;
         let execMsg = {increase_allowance: { spender : deploymentDetails.proxyContractAddress, amount: increase_amount.toString()}};
         let execResponse = await executeContract (wallet, deploymentDetails.furyContractAddress, execMsg);

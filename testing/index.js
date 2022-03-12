@@ -330,7 +330,7 @@ async function instantiateProxyContract(deploymentDetails) {
             custom_token_address: deploymentDetails.furyContractAddress,
 
             /// discount_rate when fury and UST are both provided
-            pair_discount_rate: 500,
+            pair_discount_rate: 700,
             /// bonding period when fury and UST are both provided TODO 7*24*60*60
             pair_bonding_period_in_sec: 2 * 60,
             /// Fury tokens for balanced investment will be fetched from this wallet
@@ -341,7 +341,7 @@ async function instantiateProxyContract(deploymentDetails) {
             pair_lp_tokens_holder: liquidity_wallet.key.accAddress,
 
             /// discount_rate when only UST are both provided
-            native_discount_rate: 700,
+            native_discount_rate: 500,
             /// bonding period when only UST provided TODO 5*24*60*60
             native_bonding_period_in_sec: 3 * 60,
             /// Fury tokens for native(UST only) investment will be fetched from this wallet
