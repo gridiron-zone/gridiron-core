@@ -19,3 +19,5 @@ target/
 #/scripts/package-lock.json
 /artifacts/
 /contracts/**/schema/
+/testing/node_modules/
+/testing/artifacts/localterra.json

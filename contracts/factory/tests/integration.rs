@@ -1,10 +1,12 @@
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
-use cosmwasm_std::{attr, Addr};
+use cosmwasm_std::{attr, Addr, to_binary};
 
 use astroport::asset::{AssetInfo, PairInfo};
 use astroport::factory::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PairConfig, PairType, QueryMsg,
 };
+use astroport::pair::{XykPoolParamsForProxy};
+
 use astroport::token::InstantiateMsg as TokenInstantiateMsg;
 use cw20::MinterResponse;
 
@@ -278,7 +280,7 @@ fn create_pair() {
     let msg = ExecuteMsg::CreatePair {
         pair_type: PairType::Xyk {},
         asset_infos: asset_infos.clone(),
-        init_params: None,
+        init_params: Some(to_binary(&XykPoolParamsForProxy { proxy: String::from("proxy_contract_addr") }).unwrap()),
     };
 
     let res = app

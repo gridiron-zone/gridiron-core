@@ -15,7 +15,7 @@ use astroport::generator::Cw20HookMsg as GeneratorHookMsg;
 use astroport::pair::{ConfigResponse, DEFAULT_SLIPPAGE, MAX_ALLOWED_SLIPPAGE};
 use astroport::pair::{
     CumulativePricesResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolResponse,
-    QueryMsg, ReverseSimulationResponse, SimulationResponse, TWAP_PRECISION,
+    QueryMsg, ReverseSimulationResponse, SimulationResponse, XykPoolParamsForProxy, TWAP_PRECISION,
 };
 use astroport::querier::{query_factory_config, query_fee_info, query_supply};
 use astroport::{token::InstantiateMsg as TokenInstantiateMsg, U256};
@@ -49,6 +49,10 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let params: XykPoolParamsForProxy = from_binary(&msg.init_params.unwrap())?;
+    // if true {
+    //     return Err(ContractError::Std(StdError::generic_err(format!("received {:?} in init_params of InstantiateMessage", params))))
+    // }
     msg.asset_infos[0].check(deps.api)?;
     msg.asset_infos[1].check(deps.api)?;
 
@@ -69,6 +73,7 @@ pub fn instantiate(
         block_time_last: 0,
         price0_cumulative_last: Uint128::zero(),
         price1_cumulative_last: Uint128::zero(),
+        proxy_contract_addr: addr_validate_to_lower(deps.api, params.proxy.as_str())?,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -192,6 +197,11 @@ pub fn execute(
             max_spread,
             to,
         } => {
+            let config = CONFIG.load(deps.storage)?;
+            if config.proxy_contract_addr != info.sender {
+                return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
+            }
+        
             offer_asset.info.check(deps.api)?;
             if !offer_asset.is_native_token() {
                 return Err(ContractError::Unauthorized {});
@@ -317,6 +327,11 @@ pub fn provide_liquidity(
     auto_stake: Option<bool>,
     receiver: Option<String>,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.proxy_contract_addr != info.sender {
+        return Err(ContractError::Std(StdError::generic_err(format!("proxy_addr = {:?} and sender = {:?}", config.proxy_contract_addr, info.sender))));
+    }
+
     assets[0].info.check(deps.api)?;
     assets[1].info.check(deps.api)?;
 
@@ -446,14 +461,14 @@ fn mint_liquidity_token_message(
     // If no auto-stake - just mint to recipient
     if !auto_stake {
         return Ok(vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: lp_token.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
-                recipient: recipient.to_string(),
-                amount,
-            })?,
-            funds: vec![],
-        })]);
-    }
+        contract_addr: lp_token.to_string(),
+        msg: to_binary(&Cw20ExecuteMsg::Mint {
+            recipient: recipient.to_string(),
+            amount,
+        })?,
+        funds: vec![],
+    })]);
+}
 
     // Mint to contract and stake to generator
     let generator =
