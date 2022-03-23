@@ -130,6 +130,18 @@ const mkrake_return = new MnemonicKey({mnemonic: "royal steel thought shift curv
 export const rake_return_wallet = terraClient.wallet(mkrake_return);
 // terra1z5yp64yypq3f86l04hpuhzja7ygv50tw76m0jn
 
+const mkNitin = new MnemonicKey({mnemonic:"garden celery myth discover isolate dilemma width sugar enemy grief case kingdom boring guess next huge indoor cargo crime letter useful essay gold view"});
+export const nitin_wallet = terraClient.wallet(mkNitin);
+// terra1aqan94tvxfc0h8ux4w96sjaqpcs5x4qds0690v
+
+const mkAjay = new MnemonicKey({mnemonic:"purse blur pitch skirt upset master relief feel pole enroll coffee change tooth live bunker federal work dry struggle little design eyebrow hope essence"});
+export const ajay_wallet = terraClient.wallet(mkAjay);
+// terra1s2upge2nskedaw595qug8xrq96n2qn4vgu35cv
+
+const mkSameer = new MnemonicKey({mnemonic:"term salon nothing matrix flower click annual bomb anxiety glide castle okay payment degree umbrella clap cancel lock broom use ritual thrive price flavor"});
+export const sameer_wallet = terraClient.wallet(mkSameer);
+// terra1mdypjce5j5f7qamjlj726c7hgjd3mzltj2qvcc
+
 // These can be the client wallets to interact
 export const walletTest1 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test1: gamified_airdrop_wallet;
 export const walletTest2 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test2: whitelist_airdrop_wallet;
@@ -137,6 +149,7 @@ export const walletTest3 = (process.env.TERRA_CLIENT === "localTerra") ? terraCl
 export const walletTest4 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test4: marketing_wallet;
 export const walletTest5 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test5: partnership_wallet;
 export const walletTest6 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test6: advisory_wallet;
+export const walletTest7 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test7: advisory_wallet;
 export const walletTest10 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test10: gasfee_wallet;
 
 
