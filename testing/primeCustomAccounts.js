@@ -4,38 +4,48 @@ import {
     walletTest3,
     walletTest4,
     walletTest5,
+    walletTest6,
+    walletTest7,
     mint_wallet,
     treasury_wallet,
     liquidity_wallet,
     marketing_wallet,
     bonded_lp_reward_wallet,
-    terraClient
+    team_money_wallet,
+    nitin_wallet,
+    ajay_wallet,
+    sameer_wallet,
+    terraClient,
 } from './constants.js';
 
 import { MsgSend } from '@terra-money/terra.js';
 
 export async function primeAccountsWithFunds() {
     var txHash = [];
-    txHash.push(await fundMintingWallet());
-    txHash.push(await fundTreasuryWallet());
-    txHash.push(await fundLiquidityWallet());
-    txHash.push(await fundMarketingWallet());
-    txHash.push(await transferNativeFund(walletTest5, bonded_lp_reward_wallet));
+    txHash.push(await bankTransferFund(walletTest1,mint_wallet,500000000,1000000000));
+    txHash.push(await bankTransferFund(walletTest1,team_money_wallet,500000000,1000000000));
+    txHash.push(await bankTransferFund(walletTest2,treasury_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest3,liquidity_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest4,marketing_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest5,nitin_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest6,ajay_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest7,sameer_wallet,500000000,10000000000));
+    txHash.push(await bankTransferFund(walletTest5,bonded_lp_reward_wallet,500000000,10000000000));
     console.log("leaving primeCustomAccounts");
     return txHash;
 }
 
-function fundMintingWallet() {
-    console.log(`Funding ${mint_wallet.key.accAddress} from ${walletTest1.key.accAddress}`);
+function bankTransferFund(wallet_from, wallet_to, uluna_amount, uusd_amount) {
+    console.log(`Funding ${wallet_to.key.accAddress}`);
     return new Promise(resolve => {
         // create a simple message that moves coin balances
         const send1 = new MsgSend(
-            walletTest1.key.accAddress,
-            mint_wallet.key.accAddress,
-            { uluna: 500000000, uusd: 10000000000 }
+            wallet_from.key.accAddress,
+            wallet_to.key.accAddress,
+            { uluna: uluna_amount, uusd: uusd_amount }
         );
 
-        walletTest1
+        wallet_from
             .createAndSignTx({
                 msgs: [send1],
                 memo: 'Initial Funding!',
@@ -43,115 +53,9 @@ function fundMintingWallet() {
             .then(tx => terraClient.tx.broadcast(tx))
             .then(result => {
                 console.log(result.txhash);
-                if (result.height == 0) {
-                    resolve("Failed. Please fund the wallet externally!")
-                } else {
-                    resolve(result.txhash);
-                }
+                resolve(result.txhash);
             });
     })
 }
 
-function fundTreasuryWallet() {
-    console.log(`Funding ${treasury_wallet.key.accAddress} from ${walletTest2.key.accAddress}`);
-    return new Promise(resolve => {
-        const send2 = new MsgSend(
-            walletTest2.key.accAddress,
-            treasury_wallet.key.accAddress,
-            { uluna: 500000000, uusd: 10000000000 }
-        );
 
-        walletTest2
-            .createAndSignTx({
-                msgs: [send2],
-                memo: 'Initial Funding!',
-            })
-            .then(tx => terraClient.tx.broadcast(tx))
-            .then(result => {
-                console.log(result.txhash);
-                if (result.height == 0) {
-                    resolve("Failed. Please fund the wallet externally!")
-                } else {
-                    resolve(result.txhash);
-                }
-            });
-    })
-}
-
-function fundLiquidityWallet() {
-    console.log(`Funding ${liquidity_wallet.key.accAddress} from ${walletTest3.key.accAddress}`);
-    return new Promise(resolve => {
-        const send = new MsgSend(
-            walletTest3.key.accAddress,
-            liquidity_wallet.key.accAddress,
-            { uluna: 500000000, uusd: 10000000000 }
-        );
-
-        walletTest3
-            .createAndSignTx({
-                msgs: [send],
-                memo: 'Initial Funding!',
-            })
-            .then(tx => terraClient.tx.broadcast(tx))
-            .then(result => {
-                console.log(result.txhash);
-                if (result.height == 0) {
-                    resolve("Failed. Please fund the wallet externally!")
-                } else {
-                    resolve(result.txhash);
-                }
-            });
-    })
-}
-
-function fundMarketingWallet() {
-    console.log(`Funding ${marketing_wallet.key.accAddress} from ${walletTest4.key.accAddress}`);
-    return new Promise(resolve => {
-        const send = new MsgSend(
-            walletTest4.key.accAddress,
-            marketing_wallet.key.accAddress,
-            { uluna: 500000000, uusd: 10000000000 }
-        );
-
-        walletTest4
-            .createAndSignTx({
-                msgs: [send],
-                memo: 'Initial Funding!',
-            })
-            .then(tx => terraClient.tx.broadcast(tx))
-            .then(result => {
-                console.log(result.txhash);
-                if (result.height == 0) {
-                    resolve("Failed. Please fund the wallet externally!")
-                } else {
-                    resolve(result.txhash);
-                }
-            });
-    })
-}
-
-function transferNativeFund(fromWallet, toWallet) {
-    console.log(`Funding ${toWallet.key.accAddress} from ${fromWallet.key.accAddress}`);
-    return new Promise(resolve => {
-        const send = new MsgSend(
-            fromWallet.key.accAddress,
-            toWallet.key.accAddress,
-            { uluna: 500000000, uusd: 10000000000 }
-        );
-
-        fromWallet
-            .createAndSignTx({
-                msgs: [send],
-                memo: 'Initial Funding!',
-            })
-            .then(tx => terraClient.tx.broadcast(tx))
-            .then(result => {
-                console.log(result.txhash);
-                if (result.height == 0) {
-                    resolve("Failed. Please fund the wallet externally!")
-                } else {
-                    resolve(result.txhash);
-                }
-            });
-    })
-}
