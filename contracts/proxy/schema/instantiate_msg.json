@@ -27,7 +27,7 @@
       "type": "string"
     },
     "authorized_liquidity_provider": {
-      "description": "This address has the authority to pump in liquidity The LP tokens for this address will be returned to this address",
+      "description": "This address has the authority to provide liquidity (balanced UST + Fury) and in return shall get the LP tokens",
       "type": "string"
     },
     "custom_token_address": {
@@ -35,18 +35,19 @@
       "type": "string"
     },
     "max_bonding_limit_per_user": {
+      "description": "Maximum number of simultaneous outstanding Bonds of discounted Reward Fury Tokens permitted per user",
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
     "native_bonding_period_in_sec": {
-      "description": "bonding period when only UST provided",
+      "description": "bonding period when only UST is provided",
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
     "native_discount_rate": {
-      "description": "discount_rate when only UST are both provided",
+      "description": "discount_rate when only UST is provided",
       "type": "integer",
       "format": "uint16",
       "minimum": 0.0
@@ -76,11 +77,11 @@
       "type": "string"
     },
     "pair_lp_tokens_holder": {
-      "description": "The LP tokens for all liquidity providers except authorised_liquidity_provider will be stored to this address The LPTokens for balanced investment are delivered to this wallet",
+      "description": "The LP tokens generated at time of Pair investment for discounted Fury Rewards will be assigned to this wallet",
       "type": "string"
     },
     "platform_fees": {
-      "description": "Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
+      "description": "Platform Fee Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"
@@ -88,16 +89,18 @@
       ]
     },
     "platform_fees_collector_wallet": {
+      "description": "The wallet to which various fees that is collected shall be transferred",
       "type": "string"
     },
     "pool_pair_address": {
+      "description": "The underlying Astroport-Core Pair Contract address",
       "type": [
         "string",
         "null"
       ]
     },
     "swap_fees": {
-      "description": "Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
+      "description": "Swap Fees pecified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"
@@ -113,7 +116,7 @@
       ]
     },
     "transaction_fees": {
-      "description": "Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
+      "description": "Transaction Fee Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"

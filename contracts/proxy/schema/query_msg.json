@@ -3,6 +3,7 @@
   "title": "QueryMsg",
   "oneOf": [
     {
+      "description": "Returns information about Proxy Configuration",
       "type": "object",
       "required": [
         "configuration"
@@ -15,6 +16,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns counts of Tokens related to the Liquidity Pool",
       "type": "object",
       "required": [
         "pool"
@@ -27,6 +29,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns information about Tokens Paired in the Liquidity Pool",
       "type": "object",
       "required": [
         "pair"
@@ -94,6 +97,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns Timestamp after which Swap operations would be permitted in the Liquidity Pool",
       "type": "object",
       "required": [
         "get_swap_opening_date"
@@ -106,6 +110,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns status of Fury Reward Tokens Bonded or allocated at discounted rate against Native or Pair Investment",
       "type": "object",
       "required": [
         "get_bonding_details"
@@ -126,6 +131,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns Fury Equivalent for some UST amount (without operational overheads of swap)",
       "type": "object",
       "required": [
         "get_fury_equivalent_to_ust"
@@ -146,6 +152,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns UST Equivalent for some Fury amount (without operational overheads of swap)",
       "type": "object",
       "required": [
         "get_ust_equivalent_to_fury"
@@ -166,6 +173,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns Platform Fee required for specific ExecuteMsg",
       "type": "object",
       "required": [
         "query_platform_fees"

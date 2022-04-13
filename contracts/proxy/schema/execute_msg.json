@@ -3,6 +3,7 @@
   "title": "ExecuteMsg",
   "oneOf": [
     {
+      "description": "Configure the Proxy Parameters after Astroport Core contract initialization",
       "type": "object",
       "required": [
         "configure"
@@ -15,14 +16,14 @@
           ],
           "properties": {
             "liquidity_token": {
-              "description": "contract address of Liquidity token",
+              "description": "Liquidity LP token contract address of Astroport-Core",
               "type": [
                 "string",
                 "null"
               ]
             },
             "pool_pair_address": {
-              "description": "Pool pair contract address of astroport",
+              "description": "Liquidity Pool Pair contract address of Astroport-Core",
               "type": [
                 "string",
                 "null"
@@ -56,7 +57,7 @@
       "additionalProperties": false
     },
     {
-      "description": "ProvidePairForReward a user provides pair liquidity and gets fury rewards",
+      "description": "ProvidePairForReward a user provides pair liquidity (UST + Fury balanced) and gets Fury rewards",
       "type": "object",
       "required": [
         "provide_pair_for_reward"
@@ -101,7 +102,7 @@
       "additionalProperties": false
     },
     {
-      "description": "ProvideNativeForReward a user provides native liquidity and gets fury rewards",
+      "description": "ProvideNativeForReward a user provides native liquidity (UST only) and gets Fury rewards",
       "type": "object",
       "required": [
         "provide_native_for_reward"
@@ -145,7 +146,7 @@
       "additionalProperties": false
     },
     {
-      "description": "ProvideLiquidity a user provides pool liquidity and gets lp_tokens",
+      "description": "ProvideLiquidity an Authorized user provides pair liquidity and gets lp_tokens",
       "type": "object",
       "required": [
         "provide_liquidity"
@@ -237,6 +238,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Claim the Discounted Reward Fury after bond maturity",
       "type": "object",
       "required": [
         "reward_claim"
