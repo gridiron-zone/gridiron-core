@@ -3,6 +3,7 @@ dotenv.config();
 import {
     mintInitMessage,
     MintingContractPath,
+    VnDContractPath,
     PairContractPath,
     walletTest1,
     walletTest2,
@@ -93,12 +94,22 @@ async function proceedToSetup(deploymentDetails) {
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     await instantiateFuryTokenContract(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
+
+    await uploadVnDContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await instantiateVnDContract(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+    await VnDIncreaseAllowance(deploymentDetails)
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
     await transferFuryToTreasury(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     await transferFuryToMarketing(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     await transferFuryToLiquidity(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
+
     await uploadPairContract(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     await uploadStakingContract(deploymentDetails);
@@ -123,6 +134,9 @@ async function proceedToSetup(deploymentDetails) {
     await new Promise(resolve => setTimeout(resolve, sleep_time));
     await queryProxyConfiguration(deploymentDetails);
     await new Promise(resolve => setTimeout(resolve, sleep_time));
+    console.log(`TGE Vesting and Distribution`);
+    await VnDPeriodic(deploymentDetails)
+
     console.log("deploymentDetails = " + JSON.stringify(deploymentDetails, null, ' '));
     rl.close();
     await performOperations(deploymentDetails);
@@ -148,7 +162,7 @@ async function uploadFuryTokenContract(deploymentDetails) {
         }
         if (deployFury) {
             console.log("Uploading Fury token contract");
-            console.log(`mint_wallet = ${mint_wallet.key}`);
+            console.log(`mint_wallet = ${mint_wallet.key.accAddress}`);
             let contractId = await storeCode(mint_wallet, MintingContractPath); // Getting the contract id from local terra
             console.log(`Fury Token Contract ID: ${contractId}`);
             deploymentDetails.furyTokenCodeId = contractId;
@@ -178,6 +192,132 @@ async function instantiateFuryTokenContract(deploymentDetails) {
             writeArtifact(deploymentDetails, terraClient.chainID);
         }
     }
+}
+
+async function uploadVnDContract(deploymentDetails) {
+    console.log(`terraClient.chainID = ${terraClient.chainID}`);
+    if (!deploymentDetails.VnDCodeId) {
+        let deployVnD = false;
+        const answer = await question('Do you want to upload Vesting and Distribution Contract? (y/N) ');
+        if (answer === 'Y' || answer === 'y') {
+            deployVnD = true;
+        } else if (answer === 'N' || answer === 'n') {
+            const codeId = await question('Please provide code id for Vesting and Distribution contract: ');
+            if (isNaN(codeId)) {
+                deployVnD = true;
+            } else {
+                deploymentDetails.VnDCodeId = codeId;
+                deployVnD = false;
+            }
+        } else {
+            console.log("Alright! Have fun!! :-)");
+        }
+        if (deployVnD) {
+            console.log("Uploading VnD contract");
+            console.log(`mint_wallet = ${mint_wallet.key.accAddress}`);
+            let contractId = await storeCode(mint_wallet, VnDContractPath); // Getting the contract id from local terra
+            console.log(`VnD Contract ID: ${contractId}`);
+            deploymentDetails.VnDCodeId = contractId;
+            writeArtifact(deploymentDetails, terraClient.chainID);
+        }
+    }
+}
+
+async function instantiateVnDContract(deploymentDetails) {
+    if (!deploymentDetails.VnDContractAddress) {
+        let instantiateVnD = false;
+        const answer = await question('Do you want to instantiate VnD Token Contract? (y/N) ');
+        if (answer === 'Y' || answer === 'y') {
+            instantiateVnD = true;
+        } else if (answer === 'N' || answer === 'n') {
+            const contractAddress = await question('Please provide contract address for VnD Token contract: ');
+            deploymentDetails.VnDContractAddress = contractAddress;
+            instantiateVnD = false;
+        }
+        if (instantiateVnD) {
+            let VnDInitMessage = {  
+                admin_wallet: mint_wallet.key.accAddress,
+                fury_token_contract: deploymentDetails.furyContractAddress,
+                vesting: {
+                    vesting_schedules: [
+                      {
+                        address: treasury_wallet.key.accAddress,
+                        cliff_period: 0,
+                        initial_vesting_count: "0000000",
+                        parent_category_address: treasury_wallet.key.accAddress,
+                        should_transfer: true,
+                        total_vesting_token_count: "42000000000000",
+                        vesting_count_per_period: "69490740000",
+                        vesting_periodicity: 10
+                      },
+                      {
+                        address: liquidity_wallet.key.accAddress,
+                        cliff_period: 300,
+                        initial_vesting_count: "7000000000000",
+                        parent_category_address: liquidity_wallet.key.accAddress,
+                        should_transfer: true,
+                        total_vesting_token_count: "21000000000000",
+                        vesting_count_per_period:     "140000000000",
+                        vesting_periodicity: 120
+                      },
+                      {
+                        address: bonded_lp_reward_wallet.key.accAddress,
+                        cliff_period: 0,
+                        initial_vesting_count: "3150000000000",
+                        parent_category_address: bonded_lp_reward_wallet.key.accAddress,
+                        should_transfer: true,
+                        total_vesting_token_count: "31500000000000",
+                        vesting_count_per_period:     "630000000000",
+                        vesting_periodicity: 60
+                      },
+                      {
+                        address: marketing_wallet.key.accAddress,
+                        cliff_period: 300,
+                        initial_vesting_count: "4000000",
+                        parent_category_address: marketing_wallet.key.accAddress,
+                        should_transfer: false,
+                        total_vesting_token_count: "40000004000000",
+                        vesting_count_per_period:      "20000000000",
+                        vesting_periodicity: 30
+                      }
+                    ]
+                }
+            }
+            // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000 = 134500004000000 
+
+            console.log("Instantiating VnD token contract");
+            let initiate = await instantiateContract(mint_wallet, deploymentDetails.VnDCodeId, VnDInitMessage);
+            // The order is very imp
+            let contractAddress = initiate.logs[0].events[0].attributes[3].value;
+            console.log(`VnD Token Contract address: ${contractAddress}`);
+            console.log(`VnD instantiation txhash: ${initiate['txhash']}`);
+            deploymentDetails.VnDContractAddress = contractAddress;
+            writeArtifact(deploymentDetails, terraClient.chainID);
+        }
+    }
+}
+
+async function VnDIncreaseAllowance(deploymentDetails) {
+    // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000 = 134500004000000 
+    let increaseAllowanceMsg = { increase_allowance: 
+        { owner : mint_wallet.key.accAddress, 
+          spender : deploymentDetails.VnDContractAddress,
+          amount : "134500004000000"
+        } 
+    };
+    let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
+    console.log(`Increase allowance for Vnd from fury_wallet - ${response['txhash']}`);
+}
+
+async function VnDPeriodic(deploymentDetails) {
+    let VnDTransfer = { periodically_calculate_vesting: {}};
+    let response = await executeContract(mint_wallet, deploymentDetails.VnDContractAddress, VnDTransfer);
+    console.log(`periodically_calculate_vesting Response - ${response['txhash']}`);
+    let VnDVest = { periodically_transfer_to_categories: {}};
+    response = await executeContract(mint_wallet, deploymentDetails.VnDContractAddress, VnDVest);
+    console.log(`periodically_transfer_to_categories Response - ${response['txhash']}`);
+    await increasePOLRewardAllowance(deploymentDetails,bonded_lp_reward_wallet);
+    await increasePOLRewardAllowance(deploymentDetails,liquidity_wallet);
 }
 
 async function transferFuryToTreasury(deploymentDetails) {
@@ -366,6 +506,7 @@ async function instantiateProxyContract(deploymentDetails) {
             transaction_fees: "30",
             ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
             swap_fees: "0",
+            max_bonding_limit_per_user: 100,
         };
         console.log(JSON.stringify(proxyInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
@@ -496,6 +637,14 @@ async function performOperations(deploymentDetails) {
     await new Promise(resolve => setTimeout(resolve, sleep_time));
 
     await claimInvestmentReward(deploymentDetails);
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+
+    console.log(`Second Vesting and Distribution`);
+    await VnDPeriodic(deploymentDetails)
+    await new Promise(resolve => setTimeout(resolve, sleep_time));
+
+    await claimVestedFury(deploymentDetails,marketing_wallet);
+
     console.log("Finished operations");
 }
 
@@ -1001,6 +1150,35 @@ async function queryInvestmentReward(deploymentDetails) {
         }
     });
     console.log(`bonded reward query response ${JSON.stringify(qRes)}`);
+}
+
+const increasePOLRewardAllowance = async (deploymentDetails,wallet) => {
+    let response = await queryContract(deploymentDetails.furyContractAddress, {
+        balance: {address: wallet.key.accAddress}
+    });
+    let respBalance = Number(response.balance);
+    response = await queryContract(deploymentDetails.furyContractAddress, {
+        allowance: {owner: wallet.key.accAddress,
+                    spender: deploymentDetails.proxyContractAddress}
+    });
+    let respAllowance = Number(response.allowance);
+    console.log(`fury : existing balance ${respBalance}, existing allowance ${respAllowance}, increase allowance by ${respBalance - respAllowance}`);
+    if (respBalance > respAllowance) {
+        let increase_amount = respBalance - respAllowance;
+        let execMsg = {increase_allowance: { spender : deploymentDetails.proxyContractAddress, amount: increase_amount.toString()}};
+        let execResponse = await executeContract (wallet, deploymentDetails.furyContractAddress, execMsg);
+        console.log(`POL increase allowance by ${increase_amount} uFury for proxy in wallet ${wallet.key.accAddress}, txhash ${execResponse['txhash']}`);
+    }
+}
+
+const claimVestedFury = async (deploymentDetails,wallet) => {
+    let response = await queryContract(deploymentDetails.VnDContractAddress, {
+        vesting_details: {address: wallet.key.accAddress}
+    });
+    let respBalance = Number(response.tokens_available_to_claim);
+    let execMsg = {claim_vested_tokens: { amount : respBalance.toString()}};
+    let execResponse = await executeContract (wallet, deploymentDetails.VnDContractAddress, execMsg);
+    console.log(`Claim all Vested Tokens ${respBalance} uFury for wallet ${wallet.key.accAddress}, txhash ${execResponse['txhash']}`);
 }
 
 main()
