@@ -13,6 +13,7 @@ import {
     liquidity_wallet,
     marketing_wallet,
     bonded_lp_reward_wallet,
+    nitin_wallet,
     terraTestnetClient,
     localTerraClient,
     terraClient,
@@ -252,7 +253,7 @@ async function instantiateVnDContract(deploymentDetails) {
                       },
                       {
                         address: liquidity_wallet.key.accAddress,
-                        cliff_period: 300,
+                        cliff_period: 0,
                         initial_vesting_count: "7000000000000",
                         parent_category_address: liquidity_wallet.key.accAddress,
                         should_transfer: true,
@@ -272,18 +273,29 @@ async function instantiateVnDContract(deploymentDetails) {
                       },
                       {
                         address: marketing_wallet.key.accAddress,
-                        cliff_period: 300,
+                        cliff_period: 0,
                         initial_vesting_count: "4000000",
                         parent_category_address: marketing_wallet.key.accAddress,
                         should_transfer: false,
                         total_vesting_token_count: "40000004000000",
                         vesting_count_per_period:      "20000000000",
                         vesting_periodicity: 30
+                      },
+                      {
+                        address: nitin_wallet.key.accAddress,
+                        cliff_period: 1,
+                        initial_vesting_count: "0",
+                        parent_category_address: marketing_wallet.key.accAddress,
+                        should_transfer: true,
+                        total_vesting_token_count: "1000000000",
+                        vesting_count_per_period:      "10000000",
+                        vesting_periodicity: 30
                       }
                     ]
                 }
             }
-            // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000 = 134500004000000 
+            // Last Category with cliff = 1 will vest after 1 week (clock time)
+            // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000+1000000000 = 134501004000000 
 
             console.log("Instantiating VnD token contract");
             let initiate = await instantiateContract(mint_wallet, deploymentDetails.VnDCodeId, VnDInitMessage);
@@ -298,11 +310,11 @@ async function instantiateVnDContract(deploymentDetails) {
 }
 
 async function VnDIncreaseAllowance(deploymentDetails) {
-    // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000 = 134500004000000 
+    // TOTAL total_vesting_token_count = 42000000000000+21000000000000+31500000000000+40000004000000+1000000000 = 134501004000000 
     let increaseAllowanceMsg = { increase_allowance: 
         { owner : mint_wallet.key.accAddress, 
           spender : deploymentDetails.VnDContractAddress,
-          amount : "134500004000000"
+          amount : "134501004000000"
         } 
     };
     let response = await executeContract(mint_wallet, deploymentDetails.furyContractAddress, increaseAllowanceMsg);
