@@ -18,6 +18,6 @@ target/
 /scripts/node_modules/
 #/scripts/package-lock.json
 /artifacts/
-/contracts/**/schema/
+#/contracts/**/schema/
 /testing/node_modules/
 /testing/artifacts/localterra.json
