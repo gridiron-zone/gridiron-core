@@ -366,6 +366,7 @@ async function instantiateProxyContract(deploymentDetails) {
             transaction_fees: "30",
             ///Specified in percentage multiplied by 100, i.e. 100% = 10000 and 0.01% = 1
             swap_fees: "0",
+            max_bonding_limit_per_user: 100,
         };
         console.log(JSON.stringify(proxyInitMessage, null, 2));
         let result = await instantiateContract(mint_wallet, deploymentDetails.proxyCodeId, proxyInitMessage);
