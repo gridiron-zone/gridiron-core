@@ -75,6 +75,7 @@ pub fn instantiate(
         platform_fees: msg.platform_fees,
         transaction_fees: msg.transaction_fees,
         swap_fees: msg.swap_fees,
+		max_bonding_limit_per_user: msg.max_bonding_limit_per_user,
     };
     if let Some(pool_pair_addr) = msg.pool_pair_address {
         cfg.pool_pair_address = pool_pair_addr;
@@ -713,10 +714,19 @@ pub fn transfer_custom_assets_from_funds_owner_to_proxy(
         }
         None => {}
     }
+	let bonds_for_user = bonded_rewards_details.len() as u64;
+	if config.max_bonding_limit_per_user <= bonds_for_user {
+		println!("bonds for this user = {:?}", bonds_for_user);
+		return Err(ContractError::Std(StdError::GenericErr {
+			msg: String::from("Too many bonded rewards for this user"),
+		}));
+	}
+
     let mut bonding_start_timestamp = Timestamp::from_seconds(0u64);
     if config.swap_opening_date < env.block.time {
         bonding_start_timestamp = env.block.time;
     }
+
     bonded_rewards_details.push(BondedRewardsDetails {
         user_address: user_address.to_string(),
         bonded_amount: total_fury_amount,

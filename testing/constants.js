@@ -6,6 +6,7 @@ import {MnemonicKey} from '@terra-money/terra.js';
 
 // Contracts
 export const MintingContractPath = "artifacts/cw20_base.wasm"
+export const VnDContractPath = "artifacts/vest_n_distribute.wasm"
 export const PairContractPath = "../artifacts/astroport_pair.wasm"
 export const StakingContractPath = "../artifacts/astroport_staking.wasm"
 export const WhitelistContractPath = "../artifacts/astroport_whitelist.wasm"
@@ -130,6 +131,18 @@ const mkrake_return = new MnemonicKey({mnemonic: "royal steel thought shift curv
 export const rake_return_wallet = terraClient.wallet(mkrake_return);
 // terra1z5yp64yypq3f86l04hpuhzja7ygv50tw76m0jn
 
+const mkNitin = new MnemonicKey({mnemonic:"garden celery myth discover isolate dilemma width sugar enemy grief case kingdom boring guess next huge indoor cargo crime letter useful essay gold view"});
+export const nitin_wallet = terraClient.wallet(mkNitin);
+// terra1aqan94tvxfc0h8ux4w96sjaqpcs5x4qds0690v
+
+const mkAjay = new MnemonicKey({mnemonic:"purse blur pitch skirt upset master relief feel pole enroll coffee change tooth live bunker federal work dry struggle little design eyebrow hope essence"});
+export const ajay_wallet = terraClient.wallet(mkAjay);
+// terra1s2upge2nskedaw595qug8xrq96n2qn4vgu35cv
+
+const mkSameer = new MnemonicKey({mnemonic:"term salon nothing matrix flower click annual bomb anxiety glide castle okay payment degree umbrella clap cancel lock broom use ritual thrive price flavor"});
+export const sameer_wallet = terraClient.wallet(mkSameer);
+// terra1mdypjce5j5f7qamjlj726c7hgjd3mzltj2qvcc
+
 // These can be the client wallets to interact
 export const walletTest1 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test1: gamified_airdrop_wallet;
 export const walletTest2 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test2: whitelist_airdrop_wallet;
@@ -137,6 +150,7 @@ export const walletTest3 = (process.env.TERRA_CLIENT === "localTerra") ? terraCl
 export const walletTest4 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test4: marketing_wallet;
 export const walletTest5 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test5: partnership_wallet;
 export const walletTest6 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test6: advisory_wallet;
+export const walletTest7 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test7: advisory_wallet;
 export const walletTest10 = (process.env.TERRA_CLIENT === "localTerra") ? terraClient.wallets.test10: gasfee_wallet;
 
 
@@ -145,12 +159,7 @@ export const mintInitMessage = {
     symbol: "FURY",
     decimals: 6,
     initial_balances: [
-        {address: "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k", amount: "420000000000000"},
-        {address: "terra1m46vy0jk9wck6r9mg2n8jnxw0y4g4xgl3csh9h", amount: "0"},
-        {address: "terra1k20rlfj3ea47zjr2sp672qqscck5k5mf3uersq", amount: "0"},
-        {address: "terra1wjq02nwcv6rq4zutq9rpsyq9k08rj30rhzgvt4", amount: "0"},
-        {address: "terra19rgzfvlvq0f82zyy4k7whrur8x9wnpfcj5j9g7", amount: "0"},
-        {address: "terra12g4sj6euv68kgx40k7mxu5xlm5sfat806umek7", amount: "0"},
+        {address: "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k", amount: "420000000000000"}
     ],
     mint: {
         minter: "terra1ttjw6nscdmkrx3zhxqx3md37phldgwhggm345k",
